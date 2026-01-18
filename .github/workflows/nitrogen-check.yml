@@ -1,0 +1,27 @@
+name: Nitro Check
+
+on:
+  push:
+    paths:
+      - "src/**"
+      - "nitro.json"
+      - "package.json"
+  pull_request:
+    paths:
+      - "src/**"
+      - "nitro.json"
+      - "package.json"
+
+jobs:
+  check-nitrogen:
+    name: Check Nitrogen Compatibility
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      - run: bun install
+      - run: bun run generate
+      - name: Verify no changes
+        run: git diff --exit-code HEAD -- .

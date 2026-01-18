@@ -1,0 +1,71 @@
+{
+  "name": "@minhnc/nitro-app-updater",
+  "version": "1.0.0",
+  "description": "High-performance app update checker for React Native",
+  "main": "lib/index.js",
+  "react-native": "src/index.ts",
+  "source": "src/index.ts",
+  "types": "lib/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint \"**/*.{js,ts,tsx}\" --fix",
+    "generate": "nitrogen ./src",
+    "test": "jest",
+    "prepublishOnly": "npm run generate && npm run build"
+  },
+  "files": [
+    "lib",
+    "src",
+    "ios",
+    "android",
+    "nitrogen",
+    "nitro.json",
+    "AppUpdater.podspec",
+    "app.plugin.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "react-native",
+    "ios",
+    "android",
+    "updater",
+    "nitro"
+  ],
+  "author": "Minh Nguyen",
+  "license": "MIT",
+  "peerDependencies": {
+    "react": "*",
+    "react-native": "*",
+    "react-native-nitro-modules": "*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/minhnc/nitro-app-updater.git"
+  },
+  "bugs": {
+    "url": "https://github.com/minhnc/nitro-app-updater/issues"
+  },
+  "homepage": "https://github.com/minhnc/nitro-app-updater#readme",
+  "devDependencies": {
+    "@expo/config-plugins": "^54.0.4",
+    "@expo/config-types": "^54.0.10",
+    "@react-native/babel-preset": "^0.83.1",
+    "@react-native/eslint-config": "^0.83.1",
+    "@testing-library/react-native": "^13.3.3",
+    "@types/jest": "^30.0.0",
+    "@types/react": "~18.2.79",
+    "@types/react-native": "*",
+    "@typescript-eslint/eslint-plugin": "^8.53.0",
+    "@typescript-eslint/parser": "^8.53.0",
+    "eslint": "^8.57.1",
+    "jest": "^30.2.0",
+    "metro-react-native-babel-preset": "^0.77.0",
+    "nitrogen": "0.32.1",
+    "react": "^18.2.0",
+    "react-test-renderer": "^18.2.0",
+    "ts-jest": "^29.4.6",
+    "typescript": "^5.3.3"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "cxxNamespace": ["minhnc", "appupdater"],
+  "ios": {
+    "iosModuleName": "AppUpdater"
+  },
+  "android": {
+    "androidNamespace": ["minhnc", "appupdater"],
+    "androidCxxLibName": "AppUpdater"
+  },
+  "autolinking": {
+    "AppUpdater": {
+      "swift": "HybridAppUpdater",
+      "kotlin": "HybridAppUpdater"
+    }
+  }
+}

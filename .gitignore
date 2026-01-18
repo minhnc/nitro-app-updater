@@ -1,0 +1,24 @@
+# MacOS
+.DS_Store
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Build outputs
+lib/
+android/.gradle/
+android/build/
+ios/build/
+ios/Pods/
+ios/*.xcworkspace/
+ios/*.podspec.json
+
+# IntelliJ / VSCode
+.idea/
+.vscode/
+!.vscode/extensions.json
+*.iml
+*.tgz
+*-reference/
