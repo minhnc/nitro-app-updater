@@ -66,6 +66,8 @@ namespace margelo::nitro::minhnc::appupdater {
     std::shared_ptr<Promise<void>> requestInAppReview() override;
     double getLastReviewPromptDate() override;
     void setLastReviewPromptDate(double timestamp) override;
+    SmartReviewState getSmartReviewState() override;
+    void setSmartReviewState(const SmartReviewState& state) override;
 
   private:
     friend HybridBase;

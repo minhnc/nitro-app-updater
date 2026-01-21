@@ -15,12 +15,15 @@
 
 // Forward declaration of `AppUpdateStatus` to properly resolve imports.
 namespace margelo::nitro::minhnc::appupdater { struct AppUpdateStatus; }
+// Forward declaration of `SmartReviewState` to properly resolve imports.
+namespace margelo::nitro::minhnc::appupdater { struct SmartReviewState; }
 
 #include <string>
 #include "AppUpdateStatus.hpp"
 #include <NitroModules/Promise.hpp>
 #include <optional>
 #include <functional>
+#include "SmartReviewState.hpp"
 
 namespace margelo::nitro::minhnc::appupdater {
 
@@ -64,6 +67,8 @@ namespace margelo::nitro::minhnc::appupdater {
       virtual std::shared_ptr<Promise<void>> requestInAppReview() = 0;
       virtual double getLastReviewPromptDate() = 0;
       virtual void setLastReviewPromptDate(double timestamp) = 0;
+      virtual SmartReviewState getSmartReviewState() = 0;
+      virtual void setSmartReviewState(const SmartReviewState& state) = 0;
 
     protected:
       // Hybrid Setup

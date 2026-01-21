@@ -246,6 +246,104 @@ function SettingsScreen() {
 }
 ```
 
+### Smart Review Triggers (Happiness Gate)
+
+The Smart Review feature implements the ["Happiness Gate" pattern](https://medium.com/circa/the-right-way-to-ask-users-to-review-your-app-9a32fd604fca) to maximize positive reviews while diverting constructive feedback internally.
+
+```tsx
+import { useAppUpdater, UpdatePrompt } from "@minhnc/nitro-app-updater";
+
+function App() {
+  const { recordWin } = useAppUpdater({
+    smartReview: {
+      enabled: true,
+      winsBeforePrompt: 3, // Number of positive actions before prompting
+      cooldownDays: 120, // Days to wait after prompt/dismiss
+      maxPrompts: 1, // Total number of times to prompt
+      onNegativeFeedback: () => {
+        // Called when user indicates unhappiness - open your feedback form
+        navigation.navigate("FeedbackForm");
+      },
+    },
+  });
+
+  return (
+    <>
+      <MainContent
+        onTaskComplete={() => recordWin()} // Call when user achieves a "win"
+      />
+      <UpdatePrompt config={{ smartReview: { enabled: true } }} />
+    </>
+  );
+}
+```
+
+#### Flow Diagram
+
+```mermaid
+graph TD
+    A[recordWin] --> B[Increment persistent wins]
+    B --> C{Threshold reached?}
+    C -- No --> End(( ))
+    C -- Yes --> D[Show Happiness Gate]
+
+    D --> E{Response}
+
+    E -- "Yes! 😊" --> F[requestReview]
+    F --> G{Can show native UI?}
+    G -- Yes --> H[Native Review Prompt]
+    G -- No --> I[Direct Link to App Store]
+    H --> J[Mark Reviewed & Disable Prompt]
+    I --> J
+
+    E -- "Not really 😕" --> K[onNegativeFeedback]
+    E -- "Maybe Later" --> L[Reset wins & Start Cooldown]
+    K --> L
+
+    J --> End
+    L --> End
+```
+
+#### Smart Review Events
+
+Listen for these events via `onEvent` for analytics:
+
+- `win_recorded`: `{ count: number }` - A positive action was recorded
+- `happiness_gate_shown`: `{}` - The gate modal was displayed
+- `happiness_positive`: `{}` - User tapped "Yes"
+- `happiness_negative`: `{}` - User tapped "Not really"
+- `happiness_dismissed`: `{}` - User tapped "Maybe Later"
+
+### How to test Smart Review (Happiness Gate)
+
+Testing the Happiness Gate can be tricky due to production safety limits (cooldowns and prompt quotas). Use the following setup for reliable testing during development:
+
+#### 1. The Debug Bypass
+
+When `debugMode: true` is enabled in your config, the library automatically bypasses:
+
+- **`maxPrompts` limit**: Ignores the production default of 1 prompt per user.
+- **`hasCompletedReview`**: Allows showing the gate even if the user has already clicked "Yes".
+- **Silent Failures**: On Android and in Debug mode, if the native prompt is inhibited by the OS, the library will automatically fallback to opening the Store Review page.
+
+#### 2. Recommended Testing Config
+
+To trigger the gate repeatedly in your simulator/emulator, use this configuration:
+
+```tsx
+const updater = useAppUpdater({
+  debugMode: true, // Bypasses prompt limits & enables fallbacks
+  reviewCooldownDays: 0, // Allows the native prompt/redirect every time
+  smartReview: {
+    enabled: true,
+    cooldownDays: 0, // Allows the gate to re-show immediately
+    winsBeforePrompt: 3, // Set to a low number for quick testing
+  },
+});
+```
+
+---
+
 ## Local Development
 
 To test this package locally in an **Expo** or **React Native** project:
@@ -313,12 +411,12 @@ npm run ios    # or npm run android
 - **Configurable Review Cooldown**: `reviewCooldownDays` option (default: 120 days)
 - **Unified Event Callbacks**: `onEvent` handler for analytics integration
 - **Example App**: Standalone Expo example app
+- **Smart Review Triggers**: Built-in positive action counter with auto-prompt happiness gate.
 
 ### 🚧 Planned
 
 | Feature                    | Description                                                 |
 | -------------------------- | ----------------------------------------------------------- |
-| **Smart Review Triggers**  | Built-in positive action counter with auto-prompt           |
 | **Update Reminder**        | Track dismiss date, re-show after X days                    |
 | **What's New Component**   | `<WhatsNew />` component to show release notes after update |
 | **Expo OTA Support**       | Optional integration with `expo-updates`                    |

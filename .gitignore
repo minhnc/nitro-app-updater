@@ -8,6 +8,7 @@ yarn-error.log
 
 # Build outputs
 lib/
+android/.cxx/
 android/.gradle/
 android/build/
 ios/build/

@@ -273,6 +273,30 @@ class HybridAppUpdater : HybridAppUpdaterSpec(), ActivityEventListener {
     prefs.edit().putLong("nitro_app_updater_last_review_date", timestamp.toLong()).apply()
   }
 
+  override fun getSmartReviewState(): SmartReviewState {
+    val prefs =
+            requireContext()
+                    .getSharedPreferences("nitro_app_updater", android.content.Context.MODE_PRIVATE)
+    return SmartReviewState(
+            winCount = prefs.getLong("smart_review_win_count", 0L).toDouble(),
+            lastPromptDate = prefs.getLong("smart_review_last_prompt", 0L).toDouble(),
+            hasCompletedReview = prefs.getBoolean("smart_review_completed", false),
+            promptCount = prefs.getLong("smart_review_prompt_count", 0L).toDouble()
+    )
+  }
+
+  override fun setSmartReviewState(state: SmartReviewState) {
+    val prefs =
+            requireContext()
+                    .getSharedPreferences("nitro_app_updater", android.content.Context.MODE_PRIVATE)
+    prefs.edit()
+            .putLong("smart_review_win_count", state.winCount.toLong())
+            .putLong("smart_review_last_prompt", state.lastPromptDate.toLong())
+            .putBoolean("smart_review_completed", state.hasCompletedReview)
+            .putLong("smart_review_prompt_count", state.promptCount.toLong())
+            .apply()
+  }
+
   override fun onNewIntent(intent: Intent) {
     // No-op
   }

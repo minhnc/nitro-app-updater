@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
 import { Platform, Linking } from 'react-native'
-import { AppUpdater } from './index'
+import { AppUpdater } from './NativeAppUpdater'
 import { checkIOSUpdate, compareVersions } from './versionCheck'
 import { AppUpdaterError } from './AppUpdaterError'
 
@@ -15,6 +15,11 @@ export type AppUpdaterEvent =
   | { type: 'update_downloaded'; payload: Record<string, never> }
   | { type: 'review_requested'; payload: Record<string, never> }
   | { type: 'review_completed'; payload: Record<string, never> }
+  | { type: 'win_recorded'; payload: { count: number } }
+  | { type: 'happiness_gate_shown'; payload: Record<string, never> }
+  | { type: 'happiness_positive'; payload: Record<string, never> }
+  | { type: 'happiness_negative'; payload: Record<string, never> }
+  | { type: 'happiness_dismissed'; payload: Record<string, never> }
 
 export interface AppUpdaterConfig {
   /**
@@ -63,6 +68,21 @@ export interface AppUpdaterConfig {
    * Use for custom UI logic like confetti or navigation.
    */
   onDownloadComplete?: () => void
+  /**
+   * Smart Review Triggers configuration.
+   */
+  smartReview?: {
+    /** Enable the smart review system (default: false) */
+    enabled?: boolean
+    /** Number of wins required before showing happiness gate (default: 3) */
+    winsBeforePrompt?: number
+    /** Days to wait after dismiss or negative feedback before asking again (default: 120) */
+    cooldownDays?: number
+    /** Maximum times to show the happiness gate ever (default: 1) */
+    maxPrompts?: number
+    /** Called when user indicates negative sentiment (optional) */
+    onNegativeFeedback?: () => void
+  }
 }
 
 export interface UpdateState {
@@ -93,6 +113,7 @@ export function useAppUpdater(config: AppUpdaterConfig = {}) {
     iosStoreId,
     minOsVersion,
     onDownloadComplete,
+    smartReview,
   } = config
 
   // Helper to emit events
@@ -106,6 +127,8 @@ export function useAppUpdater(config: AppUpdaterConfig = {}) {
   const [isDownloadComplete, setIsDownloadComplete] = useState(false)
 
   const [lastPromptState, setLastPromptState] = useState(() => AppUpdater.getLastReviewPromptDate())
+  const [smartReviewState, setSmartReviewState] = useState(() => AppUpdater.getSmartReviewState())
+  const [showHappinessGate, setShowHappinessGate] = useState(false)
 
   const canRequestReview = reviewCooldownDays === 0 ||
     lastPromptState === 0 ||
@@ -186,18 +209,27 @@ export function useAppUpdater(config: AppUpdaterConfig = {}) {
           UPDATE_CACHE.data = newState
       }
 
-    } catch (e) {
-      console.error('[AppUpdater] Error checking update:', e)
+    } catch (e: unknown) {
       const error = AppUpdaterError.fromNative(e)
-      emitEvent({ type: 'update_dismissed', payload: { error } })
+      const message = (e as any)?.message || ''
+      
+      // Specifically handle Play Store "Install Not Allowed" (-6) which happens on emulators/testing
+      if (Platform.OS === 'android' && message.includes('-6')) {
+        // use console.log instead of warn to satisfy some lint rules or just keep it minimal
+        console.log('[AppUpdater] Play Store check failed: Install not allowed (-6). This is common on emulators without a real account. Use debugMode correctly to test.')
+        // Fallback to no-available instead of triggering an error event that might disrupt UI
+        setUpdateState({ available: false, critical: false })
+      } else {
+        console.error('[AppUpdater] Error checking update:', e)
+        emitEvent({ type: 'update_dismissed', payload: { error } })
+      }
     } finally {
       setLoading(false)
     }
     
-    // We can't return updateState here because it's not updated until the next render.
-    // We should maintain the latest state in a local variable or just return it from here.
+    // We check UPDATE_CACHE here since it was updated in the try block
     return UPDATE_CACHE.data || { available: false, critical: false }
-  }, [debugMode, iosCountryCode, iosStoreId, minOsVersion, minRequiredVersion, emitEvent])
+  }, [debugMode, iosCountryCode, minOsVersion, minRequiredVersion, emitEvent])
 
   useEffect(() => {
     // Config validation warnings in development
@@ -236,6 +268,29 @@ export function useAppUpdater(config: AppUpdaterConfig = {}) {
   const startUpdate = useCallback(async () => {
     emitEvent({ type: 'update_accepted', payload: {} })
 
+    if (debugMode) {
+      // Mock Download progress for testing UI
+      let mockPercent = 0
+      const interval = setInterval(() => {
+        mockPercent += 10
+        const bytesDownloaded = mockPercent * 1000
+        const totalBytes = 1000 * 1000
+        setDownloadProgress({ bytesDownloaded, totalBytes, percent: mockPercent })
+        
+        if (mockPercent >= 100) {
+          clearInterval(interval)
+          emitEvent({ type: 'update_downloaded', payload: {} })
+          setIsDownloadComplete(true)
+          onDownloadComplete?.()
+        }
+      }, 500)
+
+      // Store interval in a ref for cleanup if needed, but better: 
+      // just let it finish or clear it in a cleanup effect.
+      // Since it's local, let's just make sure it's cleared eventually.
+      return () => clearInterval(interval)
+    }
+
     if (Platform.OS === 'android') {
         try {
             if (updateState.critical) {
@@ -267,23 +322,7 @@ export function useAppUpdater(config: AppUpdaterConfig = {}) {
              Linking.openURL(`https://apps.apple.com/search?term=${encodeURIComponent(appId)}`)
         }
     }
-  }, [updateState, emitEvent])
-
-  /**
-   * Requests the native in-app review dialog.
-   */
-  const requestReview = useCallback(async () => {
-    try {
-      emitEvent({ type: 'review_requested', payload: {} })
-      await AppUpdater.requestInAppReview()
-      // Force a re-render to update canRequestReview/lastPromptDate
-      setLastPromptState(AppUpdater.getLastReviewPromptDate())
-      emitEvent({ type: 'review_completed', payload: {} })
-    } catch (e) {
-      console.warn('[AppUpdater] Failed to request review:', e)
-    }
-  }, [emitEvent])
-
+  }, [updateState, emitEvent, onDownloadComplete, iosStoreId, debugMode]) // Added debugMode
 
   /**
    * Opens the store page directly to the "Write a Review" section.
@@ -298,6 +337,126 @@ export function useAppUpdater(config: AppUpdaterConfig = {}) {
     }
   }, [iosStoreId]);
 
+  /**
+   * Requests the native in-app review dialog.
+   * If the cooldown hasn't passed, it will automatically fall back to opening the store review page.
+   */
+  const requestReview = useCallback(async () => {
+    const startTime = Date.now()
+    try {
+      emitEvent({ type: 'review_requested', payload: {} })
+      
+      if (canRequestReview) {
+        if (debugMode) console.log('[AppUpdater] Attempting native in-app review prompt...')
+        await AppUpdater.requestInAppReview()
+        
+        // OS DIALOG HEURISTIC:
+        // Native review requests are technically successful even if the OS doesn't show anything.
+        // On Android, the API waits for the flow to actually finish/dismiss.
+        // On iOS, it's fire-and-forget (returns instantly).
+        const duration = Date.now() - startTime
+        
+        // We only fallback if it was "too fast" AND we are on Android or in Debug mode.
+        // We avoid this on production iOS to prevent a double-prompt (dialog + store redirect).
+        const isTooFast = duration < 300
+        if (isTooFast && (Platform.OS === 'android' || debugMode)) {
+          if (debugMode) console.log(`[AppUpdater] Native prompt returned too fast (${duration}ms). Likely suppressed. Falling back to Store Review page.`)
+          openStoreReviewPage()
+        }
+        
+        // Force a re-render to update canRequestReview/lastPromptDate
+        setLastPromptState(AppUpdater.getLastReviewPromptDate())
+      } else {
+        if (debugMode) console.log('[AppUpdater] Cooldown active. Falling back to Store Review page link.')
+        openStoreReviewPage()
+      }
+      emitEvent({ type: 'review_completed', payload: {} })
+    } catch (e) {
+      if (debugMode) console.error('[AppUpdater] Native review request failed, falling back to Store page:', e)
+      else console.warn('[AppUpdater] Failed to request review, falling back to Store page')
+      openStoreReviewPage()
+    }
+  }, [emitEvent, canRequestReview, openStoreReviewPage, debugMode])
+
+
+  /**
+   * Record a "win" or positive action.
+   * Increments the win counter and may trigger the happiness gate if threshold is met.
+   */
+  const recordWin = useCallback(async () => {
+    if (!smartReview?.enabled) return
+    
+    // In production, we stop if already reviewed or reached prompt limit.
+    // In debugMode, we allow repeating the flow for testing.
+    if (!debugMode) {
+      if (smartReviewState.hasCompletedReview) return
+      const maxPrompts = smartReview.maxPrompts ?? 1
+      if (smartReviewState.promptCount >= maxPrompts) return
+
+      // Check cooldown
+      const cooldownMs = (smartReview.cooldownDays ?? 120) * 24 * 60 * 60 * 1000
+      if (smartReviewState.lastPromptDate > 0 && 
+          (Date.now() - smartReviewState.lastPromptDate < cooldownMs)) return
+    }
+
+    const newWinCount = smartReviewState.winCount + 1
+    const newState = { ...smartReviewState, winCount: newWinCount }
+    
+    setSmartReviewState(newState)
+    AppUpdater.setSmartReviewState(newState)
+    emitEvent({ type: 'win_recorded', payload: { count: newWinCount } })
+
+    const threshold = smartReview.winsBeforePrompt ?? 3
+    if (newWinCount >= threshold) {
+      setShowHappinessGate(true)
+      emitEvent({ type: 'happiness_gate_shown', payload: {} })
+    }
+  }, [smartReview, smartReviewState, emitEvent, debugMode])
+
+  const handleHappinessPositive = useCallback(async () => {
+    if (debugMode) console.log('[AppUpdater] User clicked YES in Happiness Gate')
+    setShowHappinessGate(false)
+    const newState = {
+      ...smartReviewState,
+      hasCompletedReview: true,
+      promptCount: smartReviewState.promptCount + 1,
+      lastPromptDate: Date.now(),
+      winCount: 0
+    }
+    setSmartReviewState(newState)
+    AppUpdater.setSmartReviewState(newState)
+    emitEvent({ type: 'happiness_positive', payload: {} })
+
+    // requestReview now handles the fallback internally
+    await requestReview()
+  }, [smartReviewState, emitEvent, requestReview, debugMode])
+
+  const handleHappinessNegative = useCallback(async () => {
+    setShowHappinessGate(false)
+    const newState = {
+      ...smartReviewState,
+      promptCount: smartReviewState.promptCount + 1,
+      lastPromptDate: Date.now(),
+      winCount: 0
+    }
+    setSmartReviewState(newState)
+    AppUpdater.setSmartReviewState(newState)
+    emitEvent({ type: 'happiness_negative', payload: {} })
+    smartReview?.onNegativeFeedback?.()
+  }, [smartReview, smartReviewState, emitEvent])
+
+  const handleHappinessDismiss = useCallback(async () => {
+    setShowHappinessGate(false)
+    const newState = {
+      ...smartReviewState,
+      lastPromptDate: Date.now(),
+      winCount: 0
+    }
+    setSmartReviewState(newState)
+    AppUpdater.setSmartReviewState(newState)
+    emitEvent({ type: 'happiness_dismissed', payload: {} })
+  }, [smartReviewState, emitEvent])
+
   return {
     ...updateState,
     loading,
@@ -309,6 +468,12 @@ export function useAppUpdater(config: AppUpdaterConfig = {}) {
     requestReview,
     openStoreReviewPage,
     canRequestReview,
-    lastReviewPromptDate: lastPromptState || undefined
+    lastReviewPromptDate: lastPromptState || undefined,
+    // Smart Review
+    recordWin,
+    showHappinessGate,
+    handleHappinessPositive,
+    handleHappinessNegative,
+    handleHappinessDismiss,
   }
 }

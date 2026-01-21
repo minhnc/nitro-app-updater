@@ -300,4 +300,27 @@ open class HybridAppUpdaterSpec_cxx {
       return bridge.create_Result_void_(__exceptionPtr)
     }
   }
+  
+  @inline(__always)
+  public final func getSmartReviewState() -> bridge.Result_SmartReviewState_ {
+    do {
+      let __result = try self.__implementation.getSmartReviewState()
+      let __resultCpp = __result
+      return bridge.create_Result_SmartReviewState_(__resultCpp)
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_SmartReviewState_(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func setSmartReviewState(state: SmartReviewState) -> bridge.Result_void_ {
+    do {
+      try self.__implementation.setSmartReviewState(state: state)
+      return bridge.create_Result_void_()
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_void_(__exceptionPtr)
+    }
+  }
 }

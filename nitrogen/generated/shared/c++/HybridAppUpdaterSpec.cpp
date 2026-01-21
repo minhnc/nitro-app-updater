@@ -25,6 +25,8 @@ namespace margelo::nitro::minhnc::appupdater {
       prototype.registerHybridMethod("requestInAppReview", &HybridAppUpdaterSpec::requestInAppReview);
       prototype.registerHybridMethod("getLastReviewPromptDate", &HybridAppUpdaterSpec::getLastReviewPromptDate);
       prototype.registerHybridMethod("setLastReviewPromptDate", &HybridAppUpdaterSpec::setLastReviewPromptDate);
+      prototype.registerHybridMethod("getSmartReviewState", &HybridAppUpdaterSpec::getSmartReviewState);
+      prototype.registerHybridMethod("setSmartReviewState", &HybridAppUpdaterSpec::setSmartReviewState);
     });
   }
 

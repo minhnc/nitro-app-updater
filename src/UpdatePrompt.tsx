@@ -2,6 +2,7 @@ import React from 'react'
 import { Modal, View, Text, StyleSheet, TouchableOpacity, ScrollView, Animated } from 'react-native'
 import { useAppUpdater, type AppUpdaterEvent } from './useAppUpdater'
 import { AppUpdaterError, AppUpdaterErrorCode } from './AppUpdaterError'
+import { HappinessGate } from './HappinessGate'
 
 export interface UpdatePromptProps {
   /**
@@ -38,6 +39,11 @@ export interface UpdatePromptProps {
    * Unified event callback for analytics/logging.
    */
   onEvent?: (event: AppUpdaterEvent) => void
+  /**
+   * Optional: Provide an external updater state (result of useAppUpdater hook).
+   * If provided, the prompt will use this state instead of creating its own.
+   */
+  externalUpdater?: ReturnType<typeof useAppUpdater>
 }
 
 export function UpdatePrompt({ 
@@ -47,35 +53,32 @@ export function UpdatePrompt({
   confirmText = "Update Now",
   cancelText = "Later",
   theme,
-  onEvent
+  onEvent,
+  externalUpdater
 }: UpdatePromptProps) {
-  const { available, critical, releaseNotes, startUpdate, isReadyToInstall, completeUpdate } = useAppUpdater({
+  const internalUpdater = useAppUpdater({
     ...config,
     onEvent,
   })
+
+  const updater = externalUpdater || internalUpdater
+  
+  const { 
+    available, 
+    critical, 
+    releaseNotes, 
+    startUpdate, 
+    isReadyToInstall, 
+    completeUpdate,
+    // Smart Review
+    showHappinessGate,
+    handleHappinessPositive,
+    handleHappinessNegative,
+    handleHappinessDismiss,
+  } = updater
   const [dismissed, setDismissed] = React.useState(false)
   const fadeAnim = React.useRef(new Animated.Value(0)).current // Initial value for opacity: 0
   const scaleAnim = React.useRef(new Animated.Value(0.95)).current // Initial scale
-
-  React.useEffect(() => {
-    if (available && !dismissed) {
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          friction: 8,
-          tension: 40,
-          useNativeDriver: true,
-        })
-      ]).start()
-    }
-  }, [available, dismissed, fadeAnim, scaleAnim])
-
-  if (!available || dismissed) return null
 
   const colors = {
     primary: theme?.primary || '#007AFF',
@@ -99,61 +102,91 @@ export function UpdatePrompt({
     })
   }
 
-  return (
-    <Modal transparent animationType="none" visible={available && !dismissed}>
-      <Animated.View style={[styles.container, { backgroundColor: colors.overlay, opacity: fadeAnim }]}>
-        <Animated.View style={[
-          styles.card, 
-          { 
-            backgroundColor: colors.background,
-            transform: [{ scale: scaleAnim }]
-          }
-        ]}>
-          <View style={styles.header}>
-            <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
-          </View>
-          
-          <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
-            <Text style={[styles.message, { color: colors.subtext }]}>{message}</Text>
-            {releaseNotes ? (
-              <View style={styles.notesContainer}>
-                <Text style={[styles.notesTitle, { color: colors.text }]}>What's New:</Text>
-                <Text style={[styles.notesText, { color: colors.subtext }]}>{releaseNotes}</Text>
-              </View>
-            ) : null}
-          </ScrollView>
+  React.useEffect(() => {
+    if (available && !dismissed) {
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          friction: 8,
+          tension: 40,
+          useNativeDriver: true,
+        })
+      ]).start()
+    }
+  }, [available, dismissed, fadeAnim, scaleAnim])
 
-          <View style={styles.footer}>
-            {isReadyToInstall ? (
-              <TouchableOpacity 
-                style={[styles.button, styles.installButton, { backgroundColor: colors.primary }]}
-                onPress={completeUpdate}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.primaryButtonText}>Install & Restart</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity 
-                style={[styles.button, styles.primaryButton, { backgroundColor: colors.primary }]}
-                onPress={startUpdate}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.primaryButtonText}>{confirmText}</Text>
-              </TouchableOpacity>
-            )}
+  const showUpdateModal = available && !dismissed
+
+  return (
+    <>
+      <HappinessGate
+        visible={showHappinessGate}
+        onPositive={handleHappinessPositive}
+        onNegative={handleHappinessNegative}
+        onDismiss={handleHappinessDismiss}
+        theme={theme}
+      />
+
+      <Modal transparent animationType="none" visible={showUpdateModal}>
+        <Animated.View style={[styles.container, { backgroundColor: colors.overlay, opacity: fadeAnim }]}>
+          <Animated.View style={[
+            styles.card, 
+            { 
+              backgroundColor: colors.background,
+              transform: [{ scale: scaleAnim }]
+            }
+          ]}>
+            <View style={styles.header}>
+              <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
+            </View>
             
-            {!critical && (
-              <TouchableOpacity 
-                style={[styles.button, styles.secondaryButton]}
-                onPress={handleDismiss}
-              >
-                <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>{cancelText}</Text>
-              </TouchableOpacity>
-            )}
-          </View>
+            <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
+              <Text style={[styles.message, { color: colors.subtext }]}>{message}</Text>
+              {releaseNotes ? (
+                <View style={styles.notesContainer}>
+                  <Text style={[styles.notesTitle, { color: colors.text }]}>What's New:</Text>
+                  <Text style={[styles.notesText, { color: colors.subtext }]}>{releaseNotes}</Text>
+                </View>
+              ) : null}
+            </ScrollView>
+
+            <View style={styles.footer}>
+              {isReadyToInstall ? (
+                <TouchableOpacity 
+                  style={[styles.button, styles.installButton, { backgroundColor: colors.primary }]}
+                  onPress={completeUpdate}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.primaryButtonText}>Install & Restart</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity 
+                  style={[styles.button, styles.primaryButton, { backgroundColor: colors.primary }]}
+                  onPress={startUpdate}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.primaryButtonText}>{confirmText}</Text>
+                </TouchableOpacity>
+              )}
+              
+              {!critical && (
+                <TouchableOpacity 
+                  style={[styles.button, styles.secondaryButton]}
+                  onPress={handleDismiss}
+                >
+                  <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>{cancelText}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </Animated.View>
         </Animated.View>
-      </Animated.View>
-    </Modal>
+      </Modal>
+    </>
   )
 }
 

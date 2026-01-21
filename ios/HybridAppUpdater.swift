@@ -93,6 +93,24 @@ class HybridAppUpdater: HybridAppUpdaterSpec {
     UserDefaults.standard.set(timestamp, forKey: "nitro_app_updater_last_review_date")
   }
 
+  func getSmartReviewState() -> SmartReviewState {
+    let defaults = UserDefaults.standard
+    return SmartReviewState(
+      winCount: defaults.double(forKey: "nitro_smart_review_win_count"),
+      lastPromptDate: defaults.double(forKey: "nitro_smart_review_last_prompt"),
+      hasCompletedReview: defaults.bool(forKey: "nitro_smart_review_completed"),
+      promptCount: defaults.double(forKey: "nitro_smart_review_prompt_count")
+    )
+  }
+
+  func setSmartReviewState(state: SmartReviewState) {
+    let defaults = UserDefaults.standard
+    defaults.set(state.winCount, forKey: "nitro_smart_review_win_count")
+    defaults.set(state.lastPromptDate, forKey: "nitro_smart_review_last_prompt")
+    defaults.set(state.hasCompletedReview, forKey: "nitro_smart_review_completed")
+    defaults.set(state.promptCount, forKey: "nitro_smart_review_prompt_count")
+  }
+
   func startFlexibleUpdate(onProgress: @escaping ((Double, Double) -> Void)) throws -> Promise<Void> {
     return Promise.rejected(withError: NSError(domain: "AppUpdater", code: 1, userInfo: [NSLocalizedDescriptionKey: "Flexible updates are not supported on iOS."]))
   }

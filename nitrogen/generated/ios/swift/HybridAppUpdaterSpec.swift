@@ -25,6 +25,8 @@ public protocol HybridAppUpdaterSpec_protocol: HybridObject {
   func requestInAppReview() throws -> Promise<Void>
   func getLastReviewPromptDate() throws -> Double
   func setLastReviewPromptDate(timestamp: Double) throws -> Void
+  func getSmartReviewState() throws -> SmartReviewState
+  func setSmartReviewState(state: SmartReviewState) throws -> Void
 }
 
 public extension HybridAppUpdaterSpec_protocol {
@@ -40,14 +42,14 @@ open class HybridAppUpdaterSpec_base {
   public init() { }
   public func getCxxWrapper() -> HybridAppUpdaterSpec_cxx {
   #if DEBUG
-    guard self is HybridAppUpdaterSpec else {
+    guard self is any HybridAppUpdaterSpec else {
       fatalError("`self` is not a `HybridAppUpdaterSpec`! Did you accidentally inherit from `HybridAppUpdaterSpec_base` instead of `HybridAppUpdaterSpec`?")
     }
   #endif
     if let cxxWrapper = self.cxxWrapper {
       return cxxWrapper
     } else {
-      let cxxWrapper = HybridAppUpdaterSpec_cxx(self as! HybridAppUpdaterSpec)
+      let cxxWrapper = HybridAppUpdaterSpec_cxx(self as! any HybridAppUpdaterSpec)
       self.cxxWrapper = cxxWrapper
       return cxxWrapper
     }
