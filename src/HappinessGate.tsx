@@ -46,7 +46,7 @@ export interface HappinessGateProps {
   onDismiss: () => void
 }
 
-export function HappinessGate({
+export const HappinessGate = React.memo(function HappinessGate({
   visible,
   title = "Enjoying the app? 🎉",
   positiveText = "Yes! 😊",
@@ -104,13 +104,18 @@ export function HappinessGate({
   return (
     <Modal transparent animationType="none" visible={visible}>
       <Animated.View style={[styles.container, { backgroundColor: colors.overlay, opacity: fadeAnim }]}>
-        <Animated.View style={[
-          styles.card,
-          {
-            backgroundColor: colors.background,
-            transform: [{ scale: scaleAnim }]
-          }
-        ]}>
+        <Animated.View 
+          style={[
+            styles.card,
+            {
+              backgroundColor: colors.background,
+              transform: [{ scale: scaleAnim }]
+            }
+          ]}
+          accessible={true}
+          accessibilityRole="alert"
+          accessibilityLabel={title}
+        >
           <View style={styles.header}>
             <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
           </View>
@@ -121,6 +126,8 @@ export function HappinessGate({
                 style={[styles.choiceButton, styles.positiveButton, { backgroundColor: colors.primary }]}
                 onPress={() => handleAction(onPositive)}
                 activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel={positiveText}
               >
                 <Text style={styles.positiveButtonText}>{positiveText}</Text>
               </TouchableOpacity>
@@ -129,6 +136,8 @@ export function HappinessGate({
                 style={[styles.choiceButton, styles.negativeButton, { borderColor: colors.primary, borderWidth: 1 }]}
                 onPress={() => handleAction(onNegative)}
                 activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel={negativeText}
               >
                 <Text style={[styles.negativeButtonText, { color: colors.primary }]}>{negativeText}</Text>
               </TouchableOpacity>
@@ -137,6 +146,8 @@ export function HappinessGate({
             <TouchableOpacity
               style={styles.dismissButton}
               onPress={() => handleAction(onDismiss)}
+              accessibilityRole="button"
+              accessibilityLabel={dismissText}
             >
               <Text style={[styles.dismissButtonText, { color: colors.subtext }]}>{dismissText}</Text>
             </TouchableOpacity>
@@ -145,71 +156,86 @@ export function HappinessGate({
       </Animated.View>
     </Modal>
   )
-}
+})
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 24,
   },
   card: {
     width: '100%',
-    maxWidth: 340,
-    borderRadius: 20,
+    maxWidth: 360,
+    borderRadius: 32,
     overflow: 'hidden',
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.1,
-    shadowRadius: 20,
-    elevation: 10,
-    padding: 20,
+    shadowOffset: { width: 0, height: 20 },
+    shadowOpacity: 0.12,
+    shadowRadius: 40,
+    elevation: 15,
+    padding: 28,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
   },
   header: {
-    paddingBottom: 20,
+    paddingBottom: 28,
     alignItems: 'center',
   },
   title: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 24,
+    fontWeight: '900',
     textAlign: 'center',
+    letterSpacing: -0.5,
+    lineHeight: 32,
   },
   footer: {
-    gap: 15,
+    gap: 16,
   },
   choiceContainer: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 12,
   },
   choiceButton: {
     flex: 1,
-    height: 50,
-    borderRadius: 14,
+    height: 56,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   positiveButton: {
-    // shadow
+    // Standard shadow from choiceButton
   },
   positiveButtonText: {
     color: '#FFF',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   negativeButton: {
     backgroundColor: 'transparent',
+    borderWidth: 1.5,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   negativeButtonText: {
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: 15,
+    fontWeight: '700',
   },
   dismissButton: {
     alignItems: 'center',
-    paddingVertical: 5,
+    paddingVertical: 8,
+    marginTop: 4,
   },
   dismissButtonText: {
     fontSize: 15,
-    fontWeight: '500',
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
-})
+});

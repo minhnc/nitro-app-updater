@@ -4,6 +4,14 @@ import { useAppUpdater, type AppUpdaterEvent } from './useAppUpdater'
 import { AppUpdaterError, AppUpdaterErrorCode } from './AppUpdaterError'
 import { HappinessGate } from './HappinessGate'
 
+export interface UpdatePromptTheme {
+  primary?: string
+  background?: string
+  text?: string
+  subtext?: string
+  overlay?: string
+}
+
 export interface UpdatePromptProps {
   /**
    * Configuration for the updater hook.
@@ -28,13 +36,7 @@ export interface UpdatePromptProps {
   /**
    * Custom theme colors
    */
-  theme?: {
-    primary?: string
-    background?: string
-    text?: string
-    subtext?: string
-    overlay?: string
-  }
+  theme?: UpdatePromptTheme
   /**
    * Unified event callback for analytics/logging.
    */
@@ -46,7 +48,7 @@ export interface UpdatePromptProps {
   externalUpdater?: ReturnType<typeof useAppUpdater>
 }
 
-export function UpdatePrompt({ 
+export const UpdatePrompt = React.memo(function UpdatePrompt({ 
   config, 
   title = "Update Available", 
   message = "A new version is available! Upgrade now for the latest features and fixes.",
@@ -67,6 +69,7 @@ export function UpdatePrompt({
     available, 
     critical, 
     releaseNotes, 
+    downloadProgress,
     startUpdate, 
     isReadyToInstall, 
     completeUpdate,
@@ -134,19 +137,34 @@ export function UpdatePrompt({
 
       <Modal transparent animationType="none" visible={showUpdateModal}>
         <Animated.View style={[styles.container, { backgroundColor: colors.overlay, opacity: fadeAnim }]}>
-          <Animated.View style={[
-            styles.card, 
-            { 
-              backgroundColor: colors.background,
-              transform: [{ scale: scaleAnim }]
-            }
-          ]}>
+          <Animated.View 
+            style={[
+              styles.card, 
+              { 
+                backgroundColor: colors.background,
+                transform: [{ scale: scaleAnim }]
+              }
+            ]}
+            accessible={true}
+            accessibilityRole="alert"
+            accessibilityLabel={`${title}. ${message}`}
+          >
             <View style={styles.header}>
               <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
             </View>
             
             <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
               <Text style={[styles.message, { color: colors.subtext }]}>{message}</Text>
+              
+              {downloadProgress.percent > 0 && downloadProgress.percent < 100 && (
+                <View style={styles.progressContainer}>
+                  <View style={styles.progressBarBg}>
+                    <View style={[styles.progressBarFill, { width: `${downloadProgress.percent}%`, backgroundColor: colors.primary }]} />
+                  </View>
+                  <Text style={[styles.progressText, { color: colors.subtext }]}>{Math.round(downloadProgress.percent)}%</Text>
+                </View>
+              )}
+
               {releaseNotes ? (
                 <View style={styles.notesContainer}>
                   <Text style={[styles.notesTitle, { color: colors.text }]}>What's New:</Text>
@@ -161,6 +179,9 @@ export function UpdatePrompt({
                   style={[styles.button, styles.installButton, { backgroundColor: colors.primary }]}
                   onPress={completeUpdate}
                   activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Install and restart application"
+                  accessibilityHint="Installs the downloaded update and restarts the app immediately."
                 >
                   <Text style={styles.primaryButtonText}>Install & Restart</Text>
                 </TouchableOpacity>
@@ -169,6 +190,9 @@ export function UpdatePrompt({
                   style={[styles.button, styles.primaryButton, { backgroundColor: colors.primary }]}
                   onPress={startUpdate}
                   activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel={confirmText}
+                  accessibilityHint="Downloads and installs the new version from the store."
                 >
                   <Text style={styles.primaryButtonText}>{confirmText}</Text>
                 </TouchableOpacity>
@@ -178,6 +202,9 @@ export function UpdatePrompt({
                 <TouchableOpacity 
                   style={[styles.button, styles.secondaryButton]}
                   onPress={handleDismiss}
+                  accessibilityRole="button"
+                  accessibilityLabel={cancelText}
+                  accessibilityHint="Dismisses the update prompt for now."
                 >
                   <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>{cancelText}</Text>
                 </TouchableOpacity>
@@ -188,74 +215,89 @@ export function UpdatePrompt({
       </Modal>
     </>
   )
-}
+})
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 24,
   },
   card: {
     width: '100%',
-    maxWidth: 340,
-    borderRadius: 20,
+    maxWidth: 360,
+    borderRadius: 32,
     overflow: 'hidden',
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
+    shadowOffset: { width: 0, height: 20 },
     shadowOpacity: 0.1,
-    shadowRadius: 20,
-    elevation: 10,
+    shadowRadius: 40,
+    elevation: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
   },
   header: {
-    padding: 20,
-    paddingBottom: 10,
+    paddingTop: 32,
+    paddingHorizontal: 24,
+    paddingBottom: 16,
     alignItems: 'center',
   },
   title: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 24,
+    fontWeight: '900',
     textAlign: 'center',
+    letterSpacing: -0.5,
   },
   content: {
-    maxHeight: 300,
+    maxHeight: 320,
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingHorizontal: 28,
+    paddingBottom: 24,
   },
   message: {
-    fontSize: 16,
+    fontSize: 17,
     textAlign: 'center',
-    marginBottom: 16,
-    lineHeight: 22,
+    marginBottom: 20,
+    lineHeight: 24,
+    fontWeight: '500',
   },
   notesContainer: {
     backgroundColor: 'rgba(0,0,0,0.03)',
-    borderRadius: 12,
-    padding: 12,
-    marginTop: 8,
+    borderRadius: 20,
+    padding: 20,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.02)',
   },
   notesTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 4,
+    fontSize: 15,
+    fontWeight: '800',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   notesText: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: '500',
   },
   footer: {
-    padding: 20,
-    paddingTop: 10,
-    gap: 10,
+    padding: 24,
+    paddingTop: 12,
+    gap: 12,
   },
   button: {
-    height: 50,
-    borderRadius: 14,
+    height: 56,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   primaryButton: {
     width: '100%',
@@ -263,17 +305,39 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     color: '#FFF',
     fontSize: 17,
-    fontWeight: '600',
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   installButton: {
     width: '100%',
   },
   secondaryButton: {
     width: '100%',
-    marginTop: 5,
+    backgroundColor: 'transparent',
+    shadowOpacity: 0,
+    elevation: 0,
   },
   secondaryButtonText: {
-    fontSize: 17,
-    fontWeight: '500',
+    fontSize: 16,
+    fontWeight: '700',
   },
-})
+  progressContainer: {
+    marginVertical: 12,
+    gap: 8,
+  },
+  progressBarBg: {
+    height: 6,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  progressText: {
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'right',
+  },
+});

@@ -1,6 +1,6 @@
 {
   "name": "@minhnc/nitro-app-updater",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "High-performance app update checker for React Native",
   "main": "lib/index.js",
   "react-native": "src/index.ts",
@@ -37,7 +37,7 @@
   "license": "MIT",
   "peerDependencies": {
     "react": "*",
-    "react-native": "*",
+    "react-native": ">=0.75.0",
     "react-native-nitro-modules": "*"
   },
   "repository": {

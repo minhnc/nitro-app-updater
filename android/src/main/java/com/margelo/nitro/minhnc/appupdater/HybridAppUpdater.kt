@@ -18,6 +18,8 @@ import com.margelo.nitro.core.Promise
 
 class HybridAppUpdater : HybridAppUpdaterSpec(), ActivityEventListener {
   private var pendingUpdatePromise: Promise<Unit>? = null
+  private var flexibleUpdateListener: com.google.android.play.core.install.InstallStateUpdatedListener? = null
+  private val REQUEST_CODE_UPDATE = 1337
 
   private val context: ReactApplicationContext?
     get() = NitroModules.applicationContext
@@ -34,6 +36,10 @@ class HybridAppUpdater : HybridAppUpdaterSpec(), ActivityEventListener {
                     if (event == Lifecycle.Event.ON_DESTROY) {
                       pendingUpdatePromise?.reject(Error("UNKNOWN: Activity destroyed"))
                       pendingUpdatePromise = null
+                      
+                      // Cleanup listener
+                      flexibleUpdateListener?.let { appUpdateManager.unregisterListener(it) }
+                      flexibleUpdateListener = null
                     }
                   }
           )
@@ -127,7 +133,7 @@ class HybridAppUpdater : HybridAppUpdaterSpec(), ActivityEventListener {
                   if (immediate) com.google.android.play.core.install.model.AppUpdateType.IMMEDIATE
                   else com.google.android.play.core.install.model.AppUpdateType.FLEXIBLE,
                   activity,
-                  1337
+                  REQUEST_CODE_UPDATE
           )
           // Do not resolve yet - wait for onActivityResult
         } catch (e: Exception) {
@@ -173,6 +179,10 @@ class HybridAppUpdater : HybridAppUpdaterSpec(), ActivityEventListener {
               }
             }
 
+            }
+
+    flexibleUpdateListener?.let { appUpdateManager.unregisterListener(it) }
+    flexibleUpdateListener = listener
     appUpdateManager.registerListener(listener)
 
     val task = appUpdateManager.appUpdateInfo
@@ -183,7 +193,7 @@ class HybridAppUpdater : HybridAppUpdaterSpec(), ActivityEventListener {
                   info,
                   com.google.android.play.core.install.model.AppUpdateType.FLEXIBLE,
                   activity,
-                  1337
+                  REQUEST_CODE_UPDATE
           )
         } catch (e: Exception) {
           appUpdateManager.unregisterListener(listener)
@@ -219,7 +229,7 @@ class HybridAppUpdater : HybridAppUpdaterSpec(), ActivityEventListener {
           resultCode: Int,
           data: Intent?
   ) {
-    if (requestCode == 1337) {
+    if (requestCode == REQUEST_CODE_UPDATE) {
       if (resultCode == Activity.RESULT_OK) {
         pendingUpdatePromise?.resolve(Unit)
       } else if (resultCode == Activity.RESULT_CANCELED) {

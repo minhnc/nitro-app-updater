@@ -24,7 +24,7 @@ export class AppUpdaterError extends Error {
    * Native side should prefix messages with the error code followed by a colon.
    * e.g., "USER_CANCELLED: Update cancelled by user"
    */
-  static fromNative(error: any): AppUpdaterError {
+  static fromNative(error: unknown): AppUpdaterError {
     const message = error instanceof Error ? error.message : String(error);
     const parts = message.split(': ');
     

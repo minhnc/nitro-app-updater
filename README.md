@@ -11,6 +11,12 @@ Features:
 - 🎨 **UI Included**: Premium `UpdatePrompt` component.
 - 🛡️ **Safe**: No scraping on Android (uses Play Core API).
 
+## Demos
+
+| iOS                                               | Android                                               |
+| ------------------------------------------------- | ----------------------------------------------------- |
+| <video src="example/demos/ios.mp4" width="320" /> | <video src="example/demos/android.mp4" width="320" /> |
+
 ## Architecture
 
 ```mermaid
@@ -26,12 +32,12 @@ graph TD
 
 ## Compatibility
 
-| Platform         | Minimum Version | Notes                                 |
-| ---------------- | --------------- | ------------------------------------- |
-| **iOS**          | 13.4+           | Requires Swift 5.9+ (Xcode 15+)       |
-| **Android**      | 6.0+ (API 23)   | Uses Play Core In-App Updates         |
-| **React Native** | 0.73+           | Recommended for automatic C++ Interop |
-| **Expo**         | SDK 50+         | Via Config Plugin                     |
+| Platform         | Minimum Version | Notes                                   |
+| ---------------- | --------------- | --------------------------------------- |
+| **iOS**          | 13.4+           | Requires Swift 5.9+ (Xcode 15+)         |
+| **Android**      | 6.0+ (API 23)   | Uses Play Core In-App Updates           |
+| **React Native** | 0.75+           | JSI-based (New Architecture/Bridgeless) |
+| **Expo**         | SDK 51+         | Via Config Plugin                       |
 
 ## Installation
 
