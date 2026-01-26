@@ -192,6 +192,12 @@ export default function App() {
       <UpdatePrompt 
         externalUpdater={updater}
         theme={customTheme}
+        happinessGate={{
+          title: "Enjoying the app? 🎉",
+          positiveText: "Love it! 😊",
+          negativeText: "Not really 😕",
+          dismissText: "Maybe Later",
+        }}
         config={{
           iosStoreId: '6514638249',
           minOsVersion: '13.0'

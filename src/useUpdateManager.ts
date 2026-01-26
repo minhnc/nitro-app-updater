@@ -26,6 +26,11 @@ export function useUpdateManager(
   const isCheckingRef = useRef(false)
   const isMounted = useRef(true)
 
+  const emitEventRef = useRef(emitEvent)
+  useEffect(() => {
+    emitEventRef.current = emitEvent
+  }, [emitEvent])
+
   useEffect(() => {
     isMounted.current = true
     return () => { isMounted.current = false }
@@ -109,7 +114,7 @@ export function useUpdateManager(
         setUpdateState(newState)
         if (newState.available) {
           const version = newState.version || newState.versionCode || '0.0.0'
-          emitEvent({ type: 'update_available', payload: { version } })
+          emitEventRef.current({ type: 'update_available', payload: { version } })
         }
       }
       return newState
@@ -127,13 +132,13 @@ export function useUpdateManager(
       }
 
       if (__DEV__) console.error('[AppUpdater] Error checking update:', e)
-      emitEvent({ type: 'update_dismissed', payload: { error } })
+      emitEventRef.current({ type: 'update_dismissed', payload: { error } })
       throw error
     } finally {
       isCheckingRef.current = false
       if (isMounted.current) setLoading(false)
     }
-  }, [debugMode, iosCountryCode, minOsVersion, minRequiredVersion, emitEvent])
+  }, [debugMode, iosCountryCode, minOsVersion, minRequiredVersion])
 
   return {
     updateState,

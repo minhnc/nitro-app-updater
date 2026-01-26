@@ -179,8 +179,6 @@ class HybridAppUpdater : HybridAppUpdaterSpec(), ActivityEventListener {
               }
             }
 
-            }
-
     flexibleUpdateListener?.let { appUpdateManager.unregisterListener(it) }
     flexibleUpdateListener = listener
     appUpdateManager.registerListener(listener)

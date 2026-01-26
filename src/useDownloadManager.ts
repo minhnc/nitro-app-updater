@@ -15,6 +15,14 @@ export function useDownloadManager(
   const [isDownloadComplete, setIsDownloadComplete] = useState(false)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  const emitEventRef = useRef(emitEvent)
+  const onDownloadCompleteRef = useRef(onDownloadComplete)
+
+  useEffect(() => {
+    emitEventRef.current = emitEvent
+    onDownloadCompleteRef.current = onDownloadComplete
+  }, [emitEvent, onDownloadComplete])
+
   useEffect(() => {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current)
@@ -27,15 +35,15 @@ export function useDownloadManager(
         await AppUpdater.completeFlexibleUpdate()
       } catch (e) {
         const error = AppUpdaterError.fromNative(e)
-        emitEvent({ type: 'update_dismissed', payload: { error } })
+        emitEventRef.current({ type: 'update_dismissed', payload: { error } })
       }
     }
-  }, [emitEvent])
+  }, [])
 
   const startUpdate = useCallback(async () => {
     if (isDownloadComplete) return
 
-    emitEvent({ type: 'update_accepted', payload: {} })
+    emitEventRef.current({ type: 'update_accepted', payload: {} })
 
     if (debugMode) {
       if (intervalRef.current) clearInterval(intervalRef.current)
@@ -49,9 +57,9 @@ export function useDownloadManager(
         
         if (mockPercent >= 100) {
           if (intervalRef.current) clearInterval(intervalRef.current)
-          emitEvent({ type: 'update_downloaded', payload: {} })
+          emitEventRef.current({ type: 'update_downloaded', payload: {} })
           setIsDownloadComplete(true)
-          onDownloadComplete?.()
+          onDownloadCompleteRef.current?.()
         }
       }, 500)
       return
@@ -66,15 +74,15 @@ export function useDownloadManager(
             const percent = totalBytes > 0 ? Math.round((bytesDownloaded / totalBytes) * 100) : 0
             setDownloadProgress({ bytesDownloaded, totalBytes, percent })
             if (percent === 100) {
-              emitEvent({ type: 'update_downloaded', payload: {} })
+              emitEventRef.current({ type: 'update_downloaded', payload: {} })
               setIsDownloadComplete(true)
-              onDownloadComplete?.()
+              onDownloadCompleteRef.current?.()
             }
           })
         }
       } catch (e) {
         const error = AppUpdaterError.fromNative(e)
-        emitEvent({ type: 'update_dismissed', payload: { error } })
+        emitEventRef.current({ type: 'update_dismissed', payload: { error } })
       }
     } else {
       const url = updateState.trackViewUrl || (iosStoreId ? `itms-apps://itunes.apple.com/app/id${iosStoreId}` : null)
@@ -85,7 +93,7 @@ export function useDownloadManager(
         Linking.openURL(`itms-apps://itunes.apple.com/app/id${encodeURIComponent(appId)}`)
       }
     }
-  }, [updateState, debugMode, iosStoreId, emitEvent, onDownloadComplete, isDownloadComplete])
+  }, [updateState, debugMode, iosStoreId, isDownloadComplete])
 
   return {
     downloadProgress,

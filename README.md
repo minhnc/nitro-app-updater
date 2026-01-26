@@ -284,6 +284,22 @@ function App() {
 }
 ```
 
+#### Customizing Happiness Gate Text
+
+Customize the gate text for localization or brand voice:
+
+```tsx
+<UpdatePrompt
+  happinessGate={{
+    title: "Loving these deals? 🔥",
+    positiveText: "Absolutely!",
+    negativeText: "Could be better",
+    dismissText: "Ask me later",
+  }}
+  config={{ smartReview: { enabled: true } }}
+/>
+```
+
 #### Flow Diagram
 
 ```mermaid

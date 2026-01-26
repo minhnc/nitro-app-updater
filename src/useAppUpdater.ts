@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useRef } from 'react'
 import { useUpdateManager } from './useUpdateManager'
 import { useDownloadManager } from './useDownloadManager'
 import { useSmartReviewManager } from './useSmartReviewManager'
@@ -12,6 +12,27 @@ export * from './types'
  * Refactored into specialized managers (Update, Download, SmartReview).
  */
 export function useAppUpdater(config: AppUpdaterConfig = {}) {
+  // Stabilization: Use deep comparison to handle "raw object" configs passed by parent
+  // We want to reuse the same config object reference if the DATA hasn't changed.
+  const configRef = useRef(config)
+  const previousJson = useRef(JSON.stringify(config))
+
+  // Only perform expensive JSON.stringify if the reference actually changed
+  if (configRef.current !== config) {
+    const configJson = JSON.stringify(config)
+    if (configJson !== previousJson.current) {
+      configRef.current = config
+      previousJson.current = configJson
+    }
+  }
+
+  // Merge stable data-config with fresh callbacks (to avoid stale closures)
+  const stableConfig = {
+    ...configRef.current,
+    onEvent: config.onEvent,
+    onDownloadComplete: config.onDownloadComplete
+  }
+
   const {
     minRequiredVersion = '',
     minOsVersion = '',
@@ -23,12 +44,21 @@ export function useAppUpdater(config: AppUpdaterConfig = {}) {
     smartReview,
     onEvent,
     onDownloadComplete
-  } = config
+  } = stableConfig
 
-  // Internal unified event emitter
+  // Stabilize callbacks using refs
+  const onEventRef = useRef(onEvent)
+  const onDownloadCompleteRef = useRef(onDownloadComplete)
+
+  useEffect(() => {
+    onEventRef.current = onEvent
+    onDownloadCompleteRef.current = onDownloadComplete
+  }, [onEvent, onDownloadComplete])
+
+  // Internal unified event emitter with PERFECTLY STABLE identity
   const emitEvent = useCallback((event: AppUpdaterEvent) => {
-    onEvent?.(event)
-  }, [onEvent])
+    onEventRef.current?.(event)
+  }, [])
 
   // 1. Update Management
   const { 
@@ -54,7 +84,7 @@ export function useAppUpdater(config: AppUpdaterConfig = {}) {
     debugMode,
     iosStoreId,
     emitEvent,
-    onDownloadComplete
+    onDownloadCompleteRef.current
   )
 
   // 3. Smart Review Management

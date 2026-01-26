@@ -38,6 +38,15 @@ export interface UpdatePromptProps {
    */
   theme?: UpdatePromptTheme
   /**
+   * Happiness Gate customization for localization or brand voice.
+   */
+  happinessGate?: {
+    title?: string
+    positiveText?: string
+    negativeText?: string
+    dismissText?: string
+  }
+  /**
    * Unified event callback for analytics/logging.
    */
   onEvent?: (event: AppUpdaterEvent) => void
@@ -55,6 +64,7 @@ export const UpdatePrompt = React.memo(function UpdatePrompt({
   confirmText = "Update Now",
   cancelText = "Later",
   theme,
+  happinessGate,
   onEvent,
   externalUpdater
 }: UpdatePromptProps) {
@@ -129,6 +139,10 @@ export const UpdatePrompt = React.memo(function UpdatePrompt({
     <>
       <HappinessGate
         visible={showHappinessGate}
+        title={happinessGate?.title}
+        positiveText={happinessGate?.positiveText}
+        negativeText={happinessGate?.negativeText}
+        dismissText={happinessGate?.dismissText}
         onPositive={handleHappinessPositive}
         onNegative={handleHappinessNegative}
         onDismiss={handleHappinessDismiss}
