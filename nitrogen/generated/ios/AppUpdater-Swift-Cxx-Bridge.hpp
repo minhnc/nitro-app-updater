@@ -12,6 +12,8 @@
 namespace margelo::nitro::minhnc::appupdater { struct AppUpdateStatus; }
 // Forward declaration of `HybridAppUpdaterSpec` to properly resolve imports.
 namespace margelo::nitro::minhnc::appupdater { class HybridAppUpdaterSpec; }
+// Forward declaration of `SmartReviewState` to properly resolve imports.
+namespace margelo::nitro::minhnc::appupdater { struct SmartReviewState; }
 
 // Forward declarations of Swift defined types
 // Forward declaration of `HybridAppUpdaterSpec_cxx` to properly resolve imports.
@@ -20,6 +22,7 @@ namespace AppUpdater { class HybridAppUpdaterSpec_cxx; }
 // Include C++ defined types
 #include "AppUpdateStatus.hpp"
 #include "HybridAppUpdaterSpec.hpp"
+#include "SmartReviewState.hpp"
 #include <NitroModules/Promise.hpp>
 #include <NitroModules/PromiseHolder.hpp>
 #include <NitroModules/Result.hpp>
@@ -232,6 +235,15 @@ namespace margelo::nitro::minhnc::appupdater::bridge::swift {
   }
   inline Result_double_ create_Result_double_(const std::exception_ptr& error) noexcept {
     return Result<double>::withError(error);
+  }
+  
+  // pragma MARK: Result<SmartReviewState>
+  using Result_SmartReviewState_ = Result<SmartReviewState>;
+  inline Result_SmartReviewState_ create_Result_SmartReviewState_(const SmartReviewState& value) noexcept {
+    return Result<SmartReviewState>::withValue(value);
+  }
+  inline Result_SmartReviewState_ create_Result_SmartReviewState_(const std::exception_ptr& error) noexcept {
+    return Result<SmartReviewState>::withError(error);
   }
 
 } // namespace margelo::nitro::minhnc::appupdater::bridge::swift

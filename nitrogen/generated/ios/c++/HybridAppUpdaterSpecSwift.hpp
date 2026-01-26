@@ -14,12 +14,15 @@ namespace AppUpdater { class HybridAppUpdaterSpec_cxx; }
 
 // Forward declaration of `AppUpdateStatus` to properly resolve imports.
 namespace margelo::nitro::minhnc::appupdater { struct AppUpdateStatus; }
+// Forward declaration of `SmartReviewState` to properly resolve imports.
+namespace margelo::nitro::minhnc::appupdater { struct SmartReviewState; }
 
 #include <string>
 #include "AppUpdateStatus.hpp"
 #include <NitroModules/Promise.hpp>
 #include <optional>
 #include <functional>
+#include "SmartReviewState.hpp"
 
 #include "AppUpdater-Swift-Cxx-Umbrella.hpp"
 
@@ -149,6 +152,20 @@ namespace margelo::nitro::minhnc::appupdater {
     }
     inline void setLastReviewPromptDate(double timestamp) override {
       auto __result = _swiftPart.setLastReviewPromptDate(std::forward<decltype(timestamp)>(timestamp));
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+    }
+    inline SmartReviewState getSmartReviewState() override {
+      auto __result = _swiftPart.getSmartReviewState();
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
+    inline void setSmartReviewState(const SmartReviewState& state) override {
+      auto __result = _swiftPart.setSmartReviewState(std::forward<decltype(state)>(state));
       if (__result.hasError()) [[unlikely]] {
         std::rethrow_exception(__result.error());
       }

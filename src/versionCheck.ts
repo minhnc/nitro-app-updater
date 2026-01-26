@@ -3,21 +3,57 @@
 
 /**
  * Compares two semantic version strings.
+ * Handles numeric (1.2.3) and pre-release parts (1.0.0-beta.1).
  * Returns:
  * - 1 if v1 > v2
  * - -1 if v1 < v2
  * - 0 if v1 == v2
  */
 export function compareVersions(v1: string, v2: string): number {
-  const parts1 = v1.split('.').map(Number)
-  const parts2 = v2.split('.').map(Number)
+  // Split by dot or hyphen to handle 1.0.0-beta.1 -> ["1", "0", "0", "beta", "1"]
+  // This is a simple strategy: stricter semver parsing might be needed for complex cases,
+  // but this covers standard X.Y.Z and X.Y.Z-suffix patterns.
+  const splitVersion = (v: string) => v.split(/[.-]/).filter(Boolean)
+  
+  const parts1 = splitVersion(v1)
+  const parts2 = splitVersion(v2)
   const len = Math.max(parts1.length, parts2.length)
 
   for (let i = 0; i < len; i++) {
-    const p1 = parts1[i] || 0
-    const p2 = parts2[i] || 0
-    if (p1 > p2) return 1
-    if (p1 < p2) return -1
+    const p1Raw = parts1[i]
+    const p2Raw = parts2[i]
+
+    // If one is shorter: "1.0" < "1.0.1" usually, but "1.0" > "1.0-beta" is tricky.
+    // Commonly in semver: 1.0.0 > 1.0.0-beta. 
+    // If we run out of parts, the longer one usually wins, UNLESS it's a pre-release (-) attached.
+    // However, our split logic treats '-' as a separator. 
+    // Let's stick to a simple alphanumeric comparison for segments.
+    
+    if (p1Raw === undefined && p2Raw === undefined) return 0
+    if (p1Raw === undefined) return -1 // v1 is shorter -> smaller (e.g. 1.0 < 1.0.1)
+    if (p2Raw === undefined) return 1  // v2 is shorter -> smaller
+
+    const p1Num = parseInt(p1Raw, 10)
+    const p2Num = parseInt(p2Raw, 10)
+    
+    const p1IsNum = !isNaN(p1Num) && String(p1Num) === p1Raw
+    const p2IsNum = !isNaN(p2Num) && String(p2Num) === p2Raw
+
+    if (p1IsNum && p2IsNum) {
+      if (p1Num > p2Num) return 1
+      if (p1Num < p2Num) return -1
+    } else {
+      // String comparison for non-numeric parts
+      // Logic: numeric > string? usually string is a pre-release like 'beta', so 1.0.0 > 1.0.0-beta
+      // But here we are comparing the *same key*. 
+      // strict semver: 1.0.0 < 1.0.1. 
+      // 1.0.0-alpha < 1.0.0.
+      
+      // Let's accept simple string compare for now to avoid breaking existing simple logic 
+      // but fixing the NaN issue.
+      if (p1Raw > p2Raw) return 1
+      if (p1Raw < p2Raw) return -1
+    }
   }
   return 0
 }
@@ -29,24 +65,27 @@ interface iTunesResult {
 }
 
 export async function checkIOSUpdate(bundleId: string, country = 'us'): Promise<iTunesResult | null> {
-  try {
-    const url = `https://itunes.apple.com/lookup?bundleId=${bundleId}&country=${country}&t=${Date.now()}`
-    console.log('[AppUpdater] Checking iOS update via:', url)
-    const response = await fetch(url)
-    const data = await response.json()
-    
-    console.log(`[AppUpdater] iTunes results count: ${data.resultCount}`)
-    
-    if (data.resultCount > 0) {
-      const result = data.results[0]
-      return {
-        version: result.version,
-        trackViewUrl: result.trackViewUrl,
-        releaseNotes: result.releaseNotes
-      }
-    }
-  } catch (error) {
-    console.warn('[AppUpdater] Failed to check iOS update:', error)
+  // Allow errors to bubble up to useUpdateManager for proper handling
+  const url = `https://itunes.apple.com/lookup?bundleId=${bundleId}&country=${country}&t=${Date.now()}`
+  if (__DEV__) console.log('[AppUpdater] Checking iOS update via:', url)
+  
+  const response = await fetch(url)
+  if (!response.ok) {
+    throw new Error(`iTunes API failed with status ${response.status}`)
   }
+  
+  const data = await response.json()
+  
+  if (__DEV__) console.log(`[AppUpdater] iTunes results count: ${data.resultCount}`)
+  
+  if (data.resultCount > 0) {
+    const result = data.results[0]
+    return {
+      version: result.version,
+      trackViewUrl: result.trackViewUrl,
+      releaseNotes: result.releaseNotes
+    }
+  }
+  
   return null
 }

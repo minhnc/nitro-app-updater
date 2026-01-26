@@ -94,6 +94,14 @@ abstract class HybridAppUpdaterSpec: HybridObject() {
   @DoNotStrip
   @Keep
   abstract fun setLastReviewPromptDate(timestamp: Double): Unit
+  
+  @DoNotStrip
+  @Keep
+  abstract fun getSmartReviewState(): SmartReviewState
+  
+  @DoNotStrip
+  @Keep
+  abstract fun setSmartReviewState(state: SmartReviewState): Unit
 
   private external fun initHybrid(): HybridData
 

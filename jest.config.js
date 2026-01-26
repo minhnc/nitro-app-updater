@@ -9,5 +9,6 @@ module.exports = {
     'node_modules/(?!(react-native|@react-native|@testing-library|react-native-nitro-modules)/)',
   ],
   testMatch: ['<rootDir>/__tests__/**/*.test.ts?(x)'],
+  setupFilesAfterEnv: ['<rootDir>/jest-setup.ts'],
   testPathIgnorePatterns: ['/node_modules/', '/lib/', 'react-native-mmkv-reference'],
 };

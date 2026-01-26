@@ -9,6 +9,8 @@
 
 // Forward declaration of `AppUpdateStatus` to properly resolve imports.
 namespace margelo::nitro::minhnc::appupdater { struct AppUpdateStatus; }
+// Forward declaration of `SmartReviewState` to properly resolve imports.
+namespace margelo::nitro::minhnc::appupdater { struct SmartReviewState; }
 
 #include <string>
 #include "AppUpdateStatus.hpp"
@@ -17,6 +19,8 @@ namespace margelo::nitro::minhnc::appupdater { struct AppUpdateStatus; }
 #include "JAppUpdateStatus.hpp"
 #include <optional>
 #include <NitroModules/JUnit.hpp>
+#include "SmartReviewState.hpp"
+#include "JSmartReviewState.hpp"
 #include <functional>
 #include "JFunc_void_double_double.hpp"
 #include <NitroModules/JNICallable.hpp>
@@ -162,6 +166,15 @@ namespace margelo::nitro::minhnc::appupdater {
   void JHybridAppUpdaterSpec::setLastReviewPromptDate(double timestamp) {
     static const auto method = javaClassStatic()->getMethod<void(double /* timestamp */)>("setLastReviewPromptDate");
     method(_javaPart, timestamp);
+  }
+  SmartReviewState JHybridAppUpdaterSpec::getSmartReviewState() {
+    static const auto method = javaClassStatic()->getMethod<jni::local_ref<JSmartReviewState>()>("getSmartReviewState");
+    auto __result = method(_javaPart);
+    return __result->toCpp();
+  }
+  void JHybridAppUpdaterSpec::setSmartReviewState(const SmartReviewState& state) {
+    static const auto method = javaClassStatic()->getMethod<void(jni::alias_ref<JSmartReviewState> /* state */)>("setSmartReviewState");
+    method(_javaPart, JSmartReviewState::fromCpp(state));
   }
 
 } // namespace margelo::nitro::minhnc::appupdater

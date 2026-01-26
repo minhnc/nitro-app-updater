@@ -5,6 +5,13 @@ export interface AppUpdateStatus {
   versionCode?: number;
 }
 
+export interface SmartReviewState {
+  winCount: number;
+  lastPromptDate: number; // 0 if never prompted
+  hasCompletedReview: boolean;
+  promptCount: number;
+}
+
 export interface AppUpdater
   extends HybridObject<{ ios: "swift"; android: "kotlin" }> {
   getCurrentVersion(): string;
@@ -46,4 +53,14 @@ export interface AppUpdater
    * Called internally after requestInAppReview() succeeds.
    */
   setLastReviewPromptDate(timestamp: number): void;
+
+  /**
+   * Get the persisted Smart Review state.
+   */
+  getSmartReviewState(): SmartReviewState;
+
+  /**
+   * Update the persisted Smart Review state.
+   */
+  setSmartReviewState(state: SmartReviewState): void;
 }

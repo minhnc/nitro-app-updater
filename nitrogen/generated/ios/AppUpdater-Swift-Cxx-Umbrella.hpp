@@ -12,10 +12,13 @@
 namespace margelo::nitro::minhnc::appupdater { struct AppUpdateStatus; }
 // Forward declaration of `HybridAppUpdaterSpec` to properly resolve imports.
 namespace margelo::nitro::minhnc::appupdater { class HybridAppUpdaterSpec; }
+// Forward declaration of `SmartReviewState` to properly resolve imports.
+namespace margelo::nitro::minhnc::appupdater { struct SmartReviewState; }
 
 // Include C++ defined types
 #include "AppUpdateStatus.hpp"
 #include "HybridAppUpdaterSpec.hpp"
+#include "SmartReviewState.hpp"
 #include <NitroModules/Promise.hpp>
 #include <NitroModules/Result.hpp>
 #include <exception>
