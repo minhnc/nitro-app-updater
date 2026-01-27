@@ -29,28 +29,33 @@ export function compareVersions(v1: string, v2: string): number {
     // However, our split logic treats '-' as a separator. 
     // Let's stick to a simple alphanumeric comparison for segments.
     
-    if (p1Raw === undefined && p2Raw === undefined) return 0
-    if (p1Raw === undefined) return -1 // v1 is shorter -> smaller (e.g. 1.0 < 1.0.1)
-    if (p2Raw === undefined) return 1  // v2 is shorter -> smaller
-
-    const p1Num = parseInt(p1Raw, 10)
-    const p2Num = parseInt(p2Raw, 10)
+    const p1Num = parseInt(p1Raw || '', 10)
+    const p2Num = parseInt(p2Raw || '', 10)
     
-    const p1IsNum = !isNaN(p1Num) && String(p1Num) === p1Raw
-    const p2IsNum = !isNaN(p2Num) && String(p2Num) === p2Raw
+    const p1IsNum = p1Raw !== undefined && !isNaN(p1Num) && String(p1Num) === p1Raw
+    const p2IsNum = p2Raw !== undefined && !isNaN(p2Num) && String(p2Num) === p2Raw
 
     if (p1IsNum && p2IsNum) {
       if (p1Num > p2Num) return 1
       if (p1Num < p2Num) return -1
     } else {
-      // String comparison for non-numeric parts
-      // Logic: numeric > string? usually string is a pre-release like 'beta', so 1.0.0 > 1.0.0-beta
-      // But here we are comparing the *same key*. 
-      // strict semver: 1.0.0 < 1.0.1. 
-      // 1.0.0-alpha < 1.0.0.
+      // String comparison for non-numeric parts (pre-release)
+      // OR one version has run out of parts (undefined)
       
-      // Let's accept simple string compare for now to avoid breaking existing simple logic 
-      // but fixing the NaN issue.
+      if (p1Raw === undefined && p2Raw === undefined) return 0
+      
+      // If one is undefined, we need to determine if it's a release vs pre-release case
+      if (p1Raw === undefined) {
+        // v1 ended. If v2's next part is non-numeric, v1 is a release version and v2 is pre-release.
+        // SemVer: Release > Pre-release (1.0.0 > 1.0.0-alpha)
+        return p2IsNum ? -1 : 1
+      }
+      if (p2Raw === undefined) {
+        // v2 ended. Reverse of above.
+        return p1IsNum ? 1 : -1
+      }
+
+      // Both are defined, perform lexical comparison
       if (p1Raw > p2Raw) return 1
       if (p1Raw < p2Raw) return -1
     }
@@ -67,16 +72,11 @@ interface iTunesResult {
 export async function checkIOSUpdate(bundleId: string, country = 'us'): Promise<iTunesResult | null> {
   // Allow errors to bubble up to useUpdateManager for proper handling
   const url = `https://itunes.apple.com/lookup?bundleId=${bundleId}&country=${country}&t=${Date.now()}`
-  if (__DEV__) console.log('[AppUpdater] Checking iOS update via:', url)
-  
   const response = await fetch(url)
   if (!response.ok) {
     throw new Error(`iTunes API failed with status ${response.status}`)
   }
-  
   const data = await response.json()
-  
-  if (__DEV__) console.log(`[AppUpdater] iTunes results count: ${data.resultCount}`)
   
   if (data.resultCount > 0) {
     const result = data.results[0]

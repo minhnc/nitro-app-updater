@@ -189,4 +189,39 @@ describe('useUpdateManager', () => {
 
     expect(emitEvent).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'update_dismissed' }));
   });
+
+  it('should clear the cache when clearUpdateCache is called', async () => {
+    (AppUpdater.checkPlayStoreUpdate as jest.Mock).mockResolvedValue({ available: true, versionCode: 100 });
+
+    const { result } = renderHook(() => useUpdateManager(
+      false,
+      iosCountryCode,
+      minOsVersion,
+      minRequiredVersion,
+      emitEvent
+    ));
+
+    // Fill cache
+    await act(async () => {
+      await result.current.checkUpdate();
+    });
+    expect(AppUpdater.checkPlayStoreUpdate).toHaveBeenCalledTimes(1);
+
+    // Verify cache works
+    await act(async () => {
+      await result.current.checkUpdate();
+    });
+    expect(AppUpdater.checkPlayStoreUpdate).toHaveBeenCalledTimes(1);
+
+    // Clear cache
+    act(() => {
+      clearUpdateCache();
+    });
+
+    // Should fetch fresh data
+    await act(async () => {
+      await result.current.checkUpdate();
+    });
+    expect(AppUpdater.checkPlayStoreUpdate).toHaveBeenCalledTimes(2);
+  });
 });

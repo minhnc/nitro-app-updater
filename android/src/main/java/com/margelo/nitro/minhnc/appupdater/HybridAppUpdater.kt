@@ -3,9 +3,12 @@ package com.margelo.nitro.minhnc.appupdater
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
+import android.util.Log
+import androidx.annotation.Keep
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
+import com.facebook.proguard.annotations.DoNotStrip
 import com.facebook.react.bridge.ActivityEventListener
 import com.facebook.react.bridge.ReactApplicationContext
 import com.google.android.play.core.appupdate.AppUpdateManager
@@ -16,9 +19,13 @@ import com.google.android.play.core.review.ReviewManagerFactory
 import com.margelo.nitro.NitroModules
 import com.margelo.nitro.core.Promise
 
+@DoNotStrip
+@Keep
 class HybridAppUpdater : HybridAppUpdaterSpec(), ActivityEventListener {
   private var pendingUpdatePromise: Promise<Unit>? = null
-  private var flexibleUpdateListener: com.google.android.play.core.install.InstallStateUpdatedListener? = null
+  private var flexibleUpdateListener:
+          com.google.android.play.core.install.InstallStateUpdatedListener? =
+          null
   private val REQUEST_CODE_UPDATE = 1337
 
   private val context: ReactApplicationContext?
@@ -34,11 +41,15 @@ class HybridAppUpdater : HybridAppUpdaterSpec(), ActivityEventListener {
           activity.lifecycle.addObserver(
                   LifecycleEventObserver { _, event ->
                     if (event == Lifecycle.Event.ON_DESTROY) {
-                      pendingUpdatePromise?.reject(Error("UNKNOWN: Activity destroyed"))
                       pendingUpdatePromise = null
-                      
-                      // Cleanup listener
-                      flexibleUpdateListener?.let { appUpdateManager.unregisterListener(it) }
+
+                      // Cleanup listener - use raw context access to avoid throwing if context is
+                      // already null
+                      flexibleUpdateListener?.let {
+                        context?.let { ctx ->
+                          AppUpdateManagerFactory.create(ctx).unregisterListener(it)
+                        }
+                      }
                       flexibleUpdateListener = null
                     }
                   }
@@ -175,6 +186,15 @@ class HybridAppUpdater : HybridAppUpdaterSpec(), ActivityEventListener {
                 ) {
                   appUpdateManager.unregisterListener(this)
                   promise.reject(Error("STORE_ERROR: Flexible update failed"))
+                } else if (state.installStatus() ==
+                                com.google.android.play.core.install.model.InstallStatus.CANCELED
+                ) {
+                  appUpdateManager.unregisterListener(this)
+                  promise.reject(Error("USER_CANCELLED: Flexible update cancelled by user"))
+                } else if (state.installStatus() ==
+                                com.google.android.play.core.install.model.InstallStatus.PENDING
+                ) {
+                  Log.d("HybridAppUpdater", "Flexible update is pending...")
                 }
               }
             }
@@ -286,10 +306,13 @@ class HybridAppUpdater : HybridAppUpdaterSpec(), ActivityEventListener {
             requireContext()
                     .getSharedPreferences("nitro_app_updater", android.content.Context.MODE_PRIVATE)
     return SmartReviewState(
-            winCount = prefs.getLong("smart_review_win_count", 0L).toDouble(),
-            lastPromptDate = prefs.getLong("smart_review_last_prompt", 0L).toDouble(),
-            hasCompletedReview = prefs.getBoolean("smart_review_completed", false),
-            promptCount = prefs.getLong("smart_review_prompt_count", 0L).toDouble()
+            winCount = prefs.getLong("nitro_app_updater_smart_review_win_count", 0L).toDouble(),
+            lastPromptDate =
+                    prefs.getLong("nitro_app_updater_smart_review_last_prompt", 0L).toDouble(),
+            hasCompletedReview =
+                    prefs.getBoolean("nitro_app_updater_smart_review_completed", false),
+            promptCount =
+                    prefs.getLong("nitro_app_updater_smart_review_prompt_count", 0L).toDouble()
     )
   }
 
@@ -298,10 +321,10 @@ class HybridAppUpdater : HybridAppUpdaterSpec(), ActivityEventListener {
             requireContext()
                     .getSharedPreferences("nitro_app_updater", android.content.Context.MODE_PRIVATE)
     prefs.edit()
-            .putLong("smart_review_win_count", state.winCount.toLong())
-            .putLong("smart_review_last_prompt", state.lastPromptDate.toLong())
-            .putBoolean("smart_review_completed", state.hasCompletedReview)
-            .putLong("smart_review_prompt_count", state.promptCount.toLong())
+            .putLong("nitro_app_updater_smart_review_win_count", state.winCount.toLong())
+            .putLong("nitro_app_updater_smart_review_last_prompt", state.lastPromptDate.toLong())
+            .putBoolean("nitro_app_updater_smart_review_completed", state.hasCompletedReview)
+            .putLong("nitro_app_updater_smart_review_prompt_count", state.promptCount.toLong())
             .apply()
   }
 

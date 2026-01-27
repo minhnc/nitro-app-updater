@@ -36,9 +36,13 @@ export function useSmartReviewManager(
 
   const openStoreReviewPage = useCallback(async () => {
     if (Platform.OS === 'ios') {
-      const url = iosStoreId 
-        ? `itms-apps://itunes.apple.com/app/id${iosStoreId}?action=write-review`
-        : `itms-apps://itunes.apple.com/app/id${AppUpdater.getBundleId()}?action=write-review`
+      if (!iosStoreId) {
+        if (__DEV__) {
+          console.warn('[AppUpdater] openStoreReviewPage: No "iosStoreId" provided. Cannot generate a valid App Store review URL. Please configure iosStoreId in your UpdatePrompt config.')
+        }
+        return
+      }
+      const url = `itms-apps://itunes.apple.com/app/id${iosStoreId}?action=write-review`
       Linking.openURL(url)
     } else {
       const packageName = AppUpdater.getBundleId()
@@ -58,12 +62,14 @@ export function useSmartReviewManager(
       const currentCanRequest = debugMode || !currentLastPrompt || (Date.now() - currentLastPrompt > cooldownMs)
 
       if (currentCanRequest) {
+        // eslint-disable-next-line no-console
         if (debugMode) console.log('[AppUpdater] Attempting native in-app review prompt...')
         await AppUpdater.requestInAppReview()
         
         const duration = Date.now() - startTime
         const isTooFast = duration < 300
         if (isTooFast && (Platform.OS === 'android' || debugMode)) {
+          // eslint-disable-next-line no-console
           if (debugMode) console.log(`[AppUpdater] Native prompt returned too fast (${duration}ms). Likely suppressed. Falling back to Store Review page.`)
           openStoreReviewPage()
         }
@@ -72,6 +78,7 @@ export function useSmartReviewManager(
         lastPromptStateRef.current = newTimestamp
         setLastPromptState(newTimestamp)
       } else {
+        // eslint-disable-next-line no-console
         if (debugMode) console.log('[AppUpdater] Cooldown active. Falling back to Store Review page link.')
         openStoreReviewPage()
       }
@@ -90,7 +97,7 @@ export function useSmartReviewManager(
 
     // Use requestIdleCallback if available (modern RN/Web), fallback to InteractionManager
     const runWhenReady = (cb: () => void) => {
-      const g = global as any
+      const g = global as typeof globalThis & { requestIdleCallback?: (cb: () => void) => void }
       if (typeof g.requestIdleCallback !== 'undefined') {
         g.requestIdleCallback(cb)
       } else {
@@ -133,6 +140,7 @@ export function useSmartReviewManager(
   }, [debugMode, emitEvent])
 
   const handleHappinessPositive = useCallback(async () => {
+    // eslint-disable-next-line no-console
     if (debugMode) console.log('[AppUpdater] User clicked YES in Happiness Gate')
     setShowHappinessGate(false)
     const newState = {

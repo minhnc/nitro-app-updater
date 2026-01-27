@@ -13,6 +13,7 @@ export function useDownloadManager(
 ) {
   const [downloadProgress, setDownloadProgress] = useState({ bytesDownloaded: 0, totalBytes: 0, percent: 0 })
   const [isDownloadComplete, setIsDownloadComplete] = useState(false)
+  const [isDownloading, setIsDownloading] = useState(false)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const emitEventRef = useRef(emitEvent)
@@ -41,8 +42,9 @@ export function useDownloadManager(
   }, [])
 
   const startUpdate = useCallback(async () => {
-    if (isDownloadComplete) return
+    if (isDownloadComplete || isDownloading) return
 
+    setIsDownloading(true)
     emitEventRef.current({ type: 'update_accepted', payload: {} })
 
     if (debugMode) {
@@ -59,6 +61,7 @@ export function useDownloadManager(
           if (intervalRef.current) clearInterval(intervalRef.current)
           emitEventRef.current({ type: 'update_downloaded', payload: {} })
           setIsDownloadComplete(true)
+          setIsDownloading(false)
           onDownloadCompleteRef.current?.()
         }
       }, 500)
@@ -69,6 +72,7 @@ export function useDownloadManager(
       try {
         if (updateState.critical) {
           await AppUpdater.startInAppUpdate(true)
+          setIsDownloading(false) // For immediate update, it finishes when this returns or app restarts
         } else {
           await AppUpdater.startFlexibleUpdate((bytesDownloaded, totalBytes) => {
             const percent = totalBytes > 0 ? Math.round((bytesDownloaded / totalBytes) * 100) : 0
@@ -76,28 +80,34 @@ export function useDownloadManager(
             if (percent === 100) {
               emitEventRef.current({ type: 'update_downloaded', payload: {} })
               setIsDownloadComplete(true)
+              setIsDownloading(false)
               onDownloadCompleteRef.current?.()
             }
           })
         }
       } catch (e) {
+        setIsDownloading(false)
         const error = AppUpdaterError.fromNative(e)
         emitEventRef.current({ type: 'update_dismissed', payload: { error } })
       }
     } else {
+      setIsDownloading(false)
       const url = updateState.trackViewUrl || (iosStoreId ? `itms-apps://itunes.apple.com/app/id${iosStoreId}` : null)
       if (url) {
         Linking.openURL(url)
       } else {
-        const appId = AppUpdater.getBundleId()
-        Linking.openURL(`itms-apps://itunes.apple.com/app/id${encodeURIComponent(appId)}`)
+        // Log error in dev - it's impossible to redirect to store without a numeric ID
+        if (__DEV__) {
+          console.error('[AppUpdater] Cannot redirect to App Store: No numeric "iosStoreId" provided and the automated update check failed to return a store URL. Please ensure iosStoreId is configured in your UpdatePrompt config.')
+        }
       }
     }
-  }, [updateState, debugMode, iosStoreId, isDownloadComplete])
+  }, [updateState, debugMode, iosStoreId, isDownloadComplete, isDownloading])
 
   return {
     downloadProgress,
     isDownloadComplete,
+    isDownloading,
     startUpdate,
     completeUpdate
   }

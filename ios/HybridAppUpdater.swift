@@ -20,11 +20,7 @@ class HybridAppUpdater: HybridAppUpdaterSpec {
     }
     
     if UIApplication.shared.canOpenURL(url) {
-      if #available(iOS 10.0, *) {
-        UIApplication.shared.open(url, options: [:], completionHandler: nil)
-      } else {
-        UIApplication.shared.openURL(url)
-      }
+      UIApplication.shared.open(url, options: [:], completionHandler: nil)
     }
   }
 
@@ -37,11 +33,7 @@ class HybridAppUpdater: HybridAppUpdaterSpec {
     }
     
     if UIApplication.shared.canOpenURL(url) {
-      if #available(iOS 10.0, *) {
-        UIApplication.shared.open(url, options: [:], completionHandler: nil)
-      } else {
-        UIApplication.shared.openURL(url)
-      }
+      UIApplication.shared.open(url, options: [:], completionHandler: nil)
     }
   }
 
@@ -94,30 +86,38 @@ class HybridAppUpdater: HybridAppUpdaterSpec {
     return promise
   }
 
+  private enum StorageKeys {
+    static let lastReviewDate = "nitro_app_updater_last_review_date"
+    static let smartReviewWinCount = "nitro_app_updater_smart_review_win_count"
+    static let smartReviewLastPrompt = "nitro_app_updater_smart_review_last_prompt"
+    static let smartReviewCompleted = "nitro_app_updater_smart_review_completed"
+    static let smartReviewPromptCount = "nitro_app_updater_smart_review_prompt_count"
+  }
+
   func getLastReviewPromptDate() -> Double {
-    return UserDefaults.standard.double(forKey: "nitro_app_updater_last_review_date")
+    return UserDefaults.standard.double(forKey: StorageKeys.lastReviewDate)
   }
 
   func setLastReviewPromptDate(timestamp: Double) {
-    UserDefaults.standard.set(timestamp, forKey: "nitro_app_updater_last_review_date")
+    UserDefaults.standard.set(timestamp, forKey: StorageKeys.lastReviewDate)
   }
 
   func getSmartReviewState() -> SmartReviewState {
     let defaults = UserDefaults.standard
     return SmartReviewState(
-      winCount: defaults.double(forKey: "nitro_smart_review_win_count"),
-      lastPromptDate: defaults.double(forKey: "nitro_smart_review_last_prompt"),
-      hasCompletedReview: defaults.bool(forKey: "nitro_smart_review_completed"),
-      promptCount: defaults.double(forKey: "nitro_smart_review_prompt_count")
+      winCount: defaults.double(forKey: StorageKeys.smartReviewWinCount),
+      lastPromptDate: defaults.double(forKey: StorageKeys.smartReviewLastPrompt),
+      hasCompletedReview: defaults.bool(forKey: StorageKeys.smartReviewCompleted),
+      promptCount: defaults.double(forKey: StorageKeys.smartReviewPromptCount)
     )
   }
 
   func setSmartReviewState(state: SmartReviewState) {
     let defaults = UserDefaults.standard
-    defaults.set(state.winCount, forKey: "nitro_smart_review_win_count")
-    defaults.set(state.lastPromptDate, forKey: "nitro_smart_review_last_prompt")
-    defaults.set(state.hasCompletedReview, forKey: "nitro_smart_review_completed")
-    defaults.set(state.promptCount, forKey: "nitro_smart_review_prompt_count")
+    defaults.set(state.winCount, forKey: StorageKeys.smartReviewWinCount)
+    defaults.set(state.lastPromptDate, forKey: StorageKeys.smartReviewLastPrompt)
+    defaults.set(state.hasCompletedReview, forKey: StorageKeys.smartReviewCompleted)
+    defaults.set(state.promptCount, forKey: StorageKeys.smartReviewPromptCount)
   }
 
   func startFlexibleUpdate(onProgress: @escaping ((Double, Double) -> Void)) throws -> Promise<Void> {

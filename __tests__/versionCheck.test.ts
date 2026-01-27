@@ -1,4 +1,4 @@
-import { compareVersions } from '../src/versionCheck';
+import { compareVersions, checkIOSUpdate } from '../src/versionCheck';
 
 describe('compareVersions', () => {
   it('compares standard versions correctly', () => {
@@ -24,22 +24,51 @@ describe('compareVersions', () => {
   });
 
   it('handles mixed numeric and string segments', () => {
-     // This test documents current behavior. 
-     // With split(/[.-]/), '1.0.0-beta' -> ['1','0','0','beta']
-     // '1.0.0' -> ['1','0','0']
-     // Length 4 vs 3. 
-     // 4th char is 'beta' vs undefined. undefined returns -1 (v2 shorter -> smaller? No wait.)
-     // implementation says: if (p2Raw === undefined) return 1; // v2 is shorter -> v1 is "bigger" because it has more parts?
-     // Actually in SemVer 1.0.0-beta < 1.0.0. 
-     // My implementation: 1.0.0 vs 1.0.0-beta
-     // i=0,1,2 equal.
-     // i=3: p1=undefined, p2='beta'.
-     // if (p1Raw === undefined) return -1; => 1.0.0 < 1.0.0-beta. 
-     // THIS IS INCORRECT for SemVer (pre-release is usually lower priority than release), 
-     // BUT correct for standard "more precise version" logic if it wasn't a pre-release like 1.0.0.1 vs 1.0.0.
-     // For this PR, the main goal is preventing crashes (NaN). 
-     // Let's verifying the behavior so we don't crash.
-     
-     expect(compareVersions('1.0.0', '1.0.0')).toBe(0);
+     // Pre-release handling: 1.0.0-beta should compare correctly
+     // SemVer: 1.0.0 > 1.0.0-beta
+     expect(compareVersions('1.0.0', '1.0.0-beta')).toBe(1);
+     expect(compareVersions('1.0.0-beta', '1.0.0')).toBe(-1);
   });
 });
+
+describe('checkIOSUpdate', () => {
+  beforeEach(() => {
+    global.fetch = jest.fn()
+  })
+
+  it('should handle successful iTunes API response', async () => {
+    ;(global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        resultCount: 1,
+        results: [{ version: '1.2.0', trackViewUrl: 'url', releaseNotes: 'notes' }]
+      })
+    })
+
+    const result = await checkIOSUpdate('bundle', 'us')
+    expect(result).toEqual({
+      version: '1.2.0',
+      trackViewUrl: 'url',
+      releaseNotes: 'notes'
+    })
+  })
+
+  it('should return null if no results found', async () => {
+    ;(global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: async () => ({ resultCount: 0, results: [] })
+    })
+
+    const result = await checkIOSUpdate('bundle', 'us')
+    expect(result).toBeNull()
+  })
+
+  it('should throw error if fetch fails', async () => {
+    ;(global.fetch as jest.Mock).mockResolvedValue({
+      ok: false,
+      status: 500
+    })
+
+    await expect(checkIOSUpdate('bundle', 'us')).rejects.toThrow('iTunes API failed with status 500')
+  })
+})

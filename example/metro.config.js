@@ -15,6 +15,7 @@ config.watchFolders = [projectRoot, libraryRoot];
 // This is the CRITICAL fix for "Invalid hook call"
 config.resolver.blockList = [
   new RegExp(`${libraryRoot}/node_modules/.*`),
+  new RegExp(`${projectRoot}/node_modules/@minhnc/nitro-app-updater/.*`),
 ];
 
 // 3. Let Metro know where to find packages

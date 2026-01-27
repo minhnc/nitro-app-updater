@@ -133,7 +133,7 @@ export const HappinessGate = React.memo(function HappinessGate({
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.choiceButton, styles.negativeButton, { borderColor: colors.primary, borderWidth: 1 }]}
+                style={[styles.choiceButton, styles.negativeButton, { borderColor: colors.primary }]}
                 onPress={() => handleAction(onNegative)}
                 activeOpacity={0.8}
                 accessibilityRole="button"
@@ -146,8 +146,10 @@ export const HappinessGate = React.memo(function HappinessGate({
             <TouchableOpacity
               style={styles.dismissButton}
               onPress={() => handleAction(onDismiss)}
+              activeOpacity={0.7}
               accessibilityRole="button"
               accessibilityLabel={dismissText}
+              accessibilityHint="Dismisses the feedback prompt for now"
             >
               <Text style={[styles.dismissButtonText, { color: colors.subtext }]}>{dismissText}</Text>
             </TouchableOpacity>
@@ -220,7 +222,7 @@ const styles = StyleSheet.create({
   },
   negativeButton: {
     backgroundColor: 'transparent',
-    borderWidth: 1.5,
+    borderWidth: 1,
     shadowOpacity: 0,
     elevation: 0,
   },
@@ -230,8 +232,9 @@ const styles = StyleSheet.create({
   },
   dismissButton: {
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 12,
     marginTop: 4,
+    minHeight: 44,
   },
   dismissButtonText: {
     fontSize: 15,

@@ -1,7 +1,7 @@
 {
   "name": "@minhnc/nitro-app-updater",
-  "version": "1.1.0",
-  "description": "High-performance app update checker for React Native",
+  "version": "1.1.1",
+  "description": "High-performance, JSI-powered In-App Update and Store Review manager for React Native & Expo. Supports Play Core, iTunes Lookup, and Happiness Gate.",
   "main": "lib/index.js",
   "react-native": "src/index.ts",
   "source": "src/index.ts",
@@ -31,7 +31,17 @@
     "ios",
     "android",
     "updater",
-    "nitro"
+    "nitro",
+    "expo",
+    "nitro-modules",
+    "jsi",
+    "in-app-update",
+    "store-review",
+    "happiness-gate",
+    "app-update",
+    "android-play-core",
+    "ios-itunes-lookup",
+    "typescript"
   ],
   "author": "Minh Nguyen",
   "license": "MIT",

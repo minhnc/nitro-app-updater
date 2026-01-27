@@ -9,7 +9,7 @@
     "prebuild": "expo prebuild --clean"
   },
   "dependencies": {
-    "@minhnc/nitro-app-updater": "file:..",
+    "@minhnc/nitro-app-updater": "file:../minhnc-nitro-app-updater-1.1.1.tgz",
     "expo": "~54.0.31",
     "expo-dev-client": "^6.0.20",
     "expo-linking": "^8.0.11",

@@ -18,7 +18,6 @@ export default function App() {
 
   const addLog = (message: string) => {
     setLogs((prev) => [message, ...prev.slice(0, 19)]);
-    console.log(`[Example] ${message}`);
   };
 
   const handleEvent = (event: AppUpdaterEvent) => {
@@ -30,7 +29,7 @@ export default function App() {
     checkOnMount: false,
     reviewCooldownDays: debugMode ? 0 : 120,
     onEvent: handleEvent,
-    iosStoreId: '6514638249',
+    iosStoreId: '6514638249', // Replace with your numeric App Store ID (required for iOS manual review links)
     minOsVersion: '13.0',
     smartReview: {
       enabled: true,
@@ -53,6 +52,7 @@ export default function App() {
     startUpdate,
     completeUpdate,
     isReadyToInstall,
+    isDownloading,
     requestReview,
     openStoreReviewPage,
     canRequestReview,
@@ -80,17 +80,25 @@ export default function App() {
           <View style={styles.statusCard}>
             <View style={styles.statusRow}>
               <Text style={styles.statusLabel}>Update Available</Text>
-              <View style={[styles.badge, { backgroundColor: isAvailable ? '#E6FFFA' : '#FFF5F5' }]}>
-                <Text style={[styles.badgeText, { color: isAvailable ? '#38A169' : '#E53E3E' }]}>
+              <View style={[styles.badge, isAvailable ? styles.badgeSuccess : styles.badgeError]}>
+                <Text style={[styles.badgeText, isAvailable ? styles.textSuccess : styles.textError]}>
                   {isAvailable ? 'YES' : 'NO'}
                 </Text>
               </View>
             </View>
             <View style={styles.statusRow}>
               <Text style={styles.statusLabel}>Review Ready</Text>
-              <View style={[styles.badge, { backgroundColor: canRequestReview ? '#E6FFFA' : '#FFF5F5' }]}>
-                <Text style={[styles.badgeText, { color: canRequestReview ? '#38A169' : '#E53E3E' }]}>
+              <View style={[styles.badge, canRequestReview ? styles.badgeSuccess : styles.badgeError]}>
+                <Text style={[styles.badgeText, canRequestReview ? styles.textSuccess : styles.textError]}>
                   {canRequestReview ? 'READY' : 'COOLDOWN'}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.statusRow}>
+              <Text style={styles.statusLabel}>Is Downloading</Text>
+              <View style={[styles.badge, isDownloading ? styles.badgeInfo : styles.badgeIdle]}>
+                <Text style={[styles.badgeText, isDownloading ? styles.textInfo : styles.textIdle]}>
+                  {isDownloading ? 'YES' : 'NO'}
                 </Text>
               </View>
             </View>
@@ -156,7 +164,7 @@ export default function App() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Download Flow</Text>
             <View style={styles.progressCard}>
-              <Text style={styles.progressTitle}>Downloading Update...</Text>
+              <Text style={styles.progressTitle}>{isDownloading ? 'Downloading Update...' : 'Update Ready'}</Text>
               <View style={styles.progressBarBg}>
                 <View style={[styles.progressBarFill, { width: `${displayProgress.percent}%` }]} />
               </View>
@@ -169,9 +177,15 @@ export default function App() {
                   <Text style={styles.buttonText}>Install & Restart App</Text>
                 </TouchableOpacity>
               ) : (
-                <TouchableOpacity style={styles.primaryButton} onPress={() => startUpdate()}>
-                  <Text style={styles.buttonText}>Start Download</Text>
-                </TouchableOpacity>
+                <TouchableOpacity 
+                   style={[styles.primaryButton, isDownloading && styles.disabledButton]} 
+                   onPress={() => startUpdate()}
+                   disabled={isDownloading}
+                 >
+                   <Text style={[styles.buttonText, isDownloading && styles.disabledButtonText]}>
+                     {isDownloading ? 'Downloading...' : 'Start Download'}
+                   </Text>
+                 </TouchableOpacity>
               )}
             </View>
           </View>
@@ -191,6 +205,9 @@ export default function App() {
       {/* Pass the shared updater state to the drop-in UI component */}
       <UpdatePrompt 
         externalUpdater={updater}
+        config={{
+          minRequiredVersion: '1.0.0', // Users on versions < 1.0.0 will be forced to update
+        }}
         theme={customTheme}
         happinessGate={{
           title: "Enjoying the app? 🎉",
@@ -198,10 +215,7 @@ export default function App() {
           negativeText: "Not really 😕",
           dismissText: "Maybe Later",
         }}
-        config={{
-          iosStoreId: '6514638249',
-          minOsVersion: '13.0'
-        }}
+        onEvent={handleEvent}
       />
     </SafeAreaView>
   );
@@ -287,6 +301,30 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 12,
   },
+  badgeSuccess: {
+    backgroundColor: '#E6FFFA',
+  },
+  badgeError: {
+    backgroundColor: '#FFF5F5',
+  },
+  badgeInfo: {
+    backgroundColor: '#EBF8FF',
+  },
+  badgeIdle: {
+    backgroundColor: '#F7FAFC',
+  },
+  textSuccess: {
+    color: '#38A169',
+  },
+  textError: {
+    color: '#E53E3E',
+  },
+  textInfo: {
+    color: '#3182CE',
+  },
+  textIdle: {
+    color: '#718096',
+  },
   badgeText: {
     fontSize: 13,
     fontWeight: '900',
@@ -364,6 +402,9 @@ const styles = StyleSheet.create({
   disabledButton: {
     backgroundColor: '#F1F5F9',
     shadowOpacity: 0,
+  },
+  disabledButtonText: {
+    color: '#94A3B8',
   },
   buttonText: {
     color: '#FFFFFF',
@@ -450,6 +491,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   installButton: {
+    width: '100%',
     backgroundColor: '#7C3AED',
     paddingVertical: 18,
     borderRadius: 20,

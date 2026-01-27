@@ -2,6 +2,30 @@
 
 All notable changes to the `@minhnc/nitro-app-updater` project will be documented in this file.
 
+## [1.1.1]
+
+### 🚀 Added
+
+- **Download Status Tracking**: Introduced `isDownloading` state to `useAppUpdater` to accurately track the transition from "Update Now" to "Downloading".
+- **Disabled State**: Added `enabled` flag to `useAppUpdater` and `UpdatePrompt`. This allows skipping all initialization side-effects, which is essential when providing an `externalUpdater` to a child prompt.
+- **Happiness Gate Accessibility**: Increased the touch target for the "Maybe Later" dismiss button (44px min height) to meet accessibility standards.
+
+### 🏗️ Changed
+
+- **Improved UpdatePrompt UI**: The `UpdatePrompt` now shows a prominent progress bar in the footer immediately after the download begins, replacing the buttons for a clearer state transition.
+- **Update Check Cache**: Implemented a Map-based cache with a 5-minute TTL and a maximum size of 10 entries to prevent memory growth and redundant network requests.
+- **Standardized Native Keys**: Standardized UserDefaults (iOS) and SharedPreferences (Android) keys with the `nitro_app_updater_` prefix.
+- **Notice**: Review state (win counts and last prompt dates) will reset once during this upgrade due to the standardized naming.
+
+### 🛡️ Fixed
+
+- **Android Stale Status**: Fixed an issue where the updater UI would show a stale "Update Now" status for several seconds while a native update was starting in the background.
+- **SemVer Logic**: Fixed an inversion in `versionCheck.ts` where pre-release versions were incorrectly prioritized. Release versions are now correctly considered greater than pre-release versions (e.g. `1.0.0 > 1.0.0-beta`).
+- **iOS Redirection**: Corrected the fallback URL logic in `useDownloadManager.ts`. It now correctly requires and warns about the missing numeric `iosStoreId` instead of attempting an invalid bundle ID redirection.
+- **Native Efficiency**: Removed redundant iOS version checks in `HybridAppUpdater.swift`.
+- **Test Stability**: Major overhaul of the test suite (`useSmartReviewManager.test.ts`) to resolve async leaks and suite-level crashes caused by broad `react-native` mocks.
+- **Improved Test Coverage**: Added detailed test case for `clearUpdateCache` to ensure reliable cache management.
+
 ## [1.1.0]
 
 ### 🚀 Added

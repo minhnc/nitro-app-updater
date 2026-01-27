@@ -52,6 +52,7 @@ describe('useDownloadManager', () => {
 
     // Verify initial progress
     expect(result.current.downloadProgress.percent).toBe(0);
+    expect(result.current.isDownloading).toBe(true);
 
     // Fast forward halfway
     act(() => {
@@ -60,6 +61,7 @@ describe('useDownloadManager', () => {
 
     expect(result.current.downloadProgress.percent).toBe(50);
     expect(result.current.isDownloadComplete).toBe(false);
+    expect(result.current.isDownloading).toBe(true);
 
     // Finish simulation
     act(() => {
@@ -68,6 +70,7 @@ describe('useDownloadManager', () => {
 
     expect(result.current.downloadProgress.percent).toBe(100);
     expect(result.current.isDownloadComplete).toBe(true);
+    expect(result.current.isDownloading).toBe(false);
     expect(onDownloadComplete).toHaveBeenCalled();
     expect(emitEvent).toHaveBeenCalledWith({ type: 'update_downloaded', payload: {} });
   });

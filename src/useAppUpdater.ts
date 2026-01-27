@@ -14,6 +14,8 @@ export * from './types'
 export function useAppUpdater(config: AppUpdaterConfig = {}) {
   // Stabilization: Use deep comparison to handle "raw object" configs passed by parent
   // We want to reuse the same config object reference if the DATA hasn't changed.
+  // Note: JSON.stringify intentionally ignores functions (callbacks). Callback
+  // stability is handled separately via refs and useEffect (lines 51-57).
   const configRef = useRef(config)
   const previousJson = useRef(JSON.stringify(config))
 
@@ -43,7 +45,8 @@ export function useAppUpdater(config: AppUpdaterConfig = {}) {
     reviewCooldownDays = 120,
     smartReview,
     onEvent,
-    onDownloadComplete
+    onDownloadComplete,
+    enabled = true,
   } = stableConfig
 
   // Stabilize callbacks using refs
@@ -77,6 +80,7 @@ export function useAppUpdater(config: AppUpdaterConfig = {}) {
   const {
     downloadProgress,
     isDownloadComplete,
+    isDownloading,
     startUpdate,
     completeUpdate
   } = useDownloadManager(
@@ -108,10 +112,10 @@ export function useAppUpdater(config: AppUpdaterConfig = {}) {
 
   // Initial check on mount
   useEffect(() => {
-    if (checkOnMount) {
+    if (enabled && checkOnMount) {
       checkUpdate()
     }
-  }, [checkOnMount, checkUpdate])
+  }, [enabled, checkOnMount, checkUpdate])
 
   return {
     /**
@@ -147,6 +151,10 @@ export function useAppUpdater(config: AppUpdaterConfig = {}) {
      * Whether the update has been downloaded and is ready to install (Android flexible updates).
      */
     isReadyToInstall: isDownloadComplete,
+    /**
+     * Whether an update is currently being downloaded (Android flexible updates).
+     */
+    isDownloading,
     /**
      * Timestamp of the last time a review was requested.
      */

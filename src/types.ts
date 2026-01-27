@@ -86,6 +86,11 @@ export interface AppUpdaterConfig {
    */
   smartReview?: SmartReviewConfig
   /**
+   * Whether the updater is enabled. If false, no checks or initialization will occur.
+   * Useful when providing an external updater state to UpdatePrompt.
+   */
+  enabled?: boolean
+  /**
    * Unified event callback for analytics.
    */
   onEvent?: (event: AppUpdaterEvent) => void

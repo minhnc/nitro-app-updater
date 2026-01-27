@@ -6,12 +6,28 @@ import { AppUpdaterError } from './AppUpdaterError'
 import type { UpdateState, AppUpdaterEvent } from './types'
 
 // Cache to prevent multiple simultaneous checks
-const UPDATE_CACHE: Record<string, { data: UpdateState, timestamp: number }> = {}
+const UPDATE_CACHE: Map<string, { data: UpdateState, timestamp: number }> = new Map()
 
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+const MAX_CACHE_SIZE = 10
 
+/**
+ * Prunes expired entries from the update cache.
+ */
+function pruneStaleCache() {
+  const now = Date.now()
+  for (const [key, value] of UPDATE_CACHE) {
+    if (now - value.timestamp > CACHE_TTL) {
+      UPDATE_CACHE.delete(key)
+    }
+  }
+}
+
+/**
+ * Manually clears the update check cache.
+ */
 export function clearUpdateCache() {
-  Object.keys(UPDATE_CACHE).forEach(key => delete UPDATE_CACHE[key])
+  UPDATE_CACHE.clear()
 }
 
 export function useUpdateManager(
@@ -39,10 +55,14 @@ export function useUpdateManager(
   const checkUpdate = useCallback(async (force = false) => {
     const cacheKey = `${iosCountryCode}:${debugMode}:${minOsVersion}:${minRequiredVersion}`
     
+    // Prune stale entries before check
+    pruneStaleCache()
+
     // Check cache
-    if (!force && UPDATE_CACHE[cacheKey] && (Date.now() - UPDATE_CACHE[cacheKey].timestamp < CACHE_TTL)) {
-      setUpdateState(UPDATE_CACHE[cacheKey].data)
-      return UPDATE_CACHE[cacheKey].data
+    const cached = UPDATE_CACHE.get(cacheKey)
+    if (!force && cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
+      setUpdateState(cached.data)
+      return cached.data
     }
 
     // Early exit if OS not supported
@@ -50,13 +70,11 @@ export function useUpdateManager(
       const currentVersion = Platform.Version
       const currentOs = Platform.OS === 'ios' ? String(currentVersion) : String(currentVersion || '')
       if (currentOs && compareVersions(currentOs, minOsVersion) < 0) {
-        if (__DEV__) console.warn(`[AppUpdater] Current OS version ${currentOs} is lower than required ${minOsVersion}. Skipping check.`)
         const newState = { available: false, critical: false }
         setUpdateState(newState)
         return newState
       }
     }
-
 
     if (isCheckingRef.current) return { available: false, critical: false }
 
@@ -98,17 +116,22 @@ export function useUpdateManager(
 
       // Final local checks (Min required version)
       if (newState.available) {
-        if (minRequiredVersion && newState.version) {
-          if (compareVersions(newState.version, minRequiredVersion) >= 0) {
-            newState.critical = true
-          }
+        const currentVersion = AppUpdater.getCurrentVersion()
+        if (minRequiredVersion && compareVersions(currentVersion, minRequiredVersion) < 0) {
+          newState.critical = true
         }
       }
 
-      UPDATE_CACHE[cacheKey] = {
+      // Maintain cache size
+      if (UPDATE_CACHE.size >= MAX_CACHE_SIZE) {
+        const oldestKey = UPDATE_CACHE.keys().next().value
+        if (oldestKey) UPDATE_CACHE.delete(oldestKey)
+      }
+
+      UPDATE_CACHE.set(cacheKey, {
         data: newState,
         timestamp: Date.now()
-      }
+      })
       
       if (isMounted.current) {
         setUpdateState(newState)
@@ -124,15 +147,14 @@ export function useUpdateManager(
       if (Platform.OS === 'android') {
         const message = e instanceof Error ? e.message : String(e)
         if (message.includes('-6')) {
-          if (__DEV__) console.log('[AppUpdater] Play Store check failed: Install not allowed (-6). This is common on emulators without a real account. Use debugMode correctly to test.')
+          // -6 is INSTALL_NOT_ALLOWED (e.g. user disabled it)
           const fallback = { available: false, critical: false }
-          setUpdateState(fallback)
+          if (isMounted.current) setUpdateState(fallback)
           return fallback
         }
       }
 
-      if (__DEV__) console.error('[AppUpdater] Error checking update:', e)
-      emitEventRef.current({ type: 'update_dismissed', payload: { error } })
+      if (isMounted.current) emitEventRef.current({ type: 'update_dismissed', payload: { error } })
       throw error
     } finally {
       isCheckingRef.current = false

@@ -3,6 +3,11 @@ import { useSmartReviewManager } from '../src/useSmartReviewManager';
 import { AppUpdater } from '../src/NativeAppUpdater';
 import { Platform, Linking } from 'react-native';
 
+// Mock InteractionManager behavior handled in the main factory mock below
+
+// Mock requestIdleCallback
+(global as unknown as { requestIdleCallback: (cb: () => void) => void }).requestIdleCallback = jest.fn((cb) => cb());
+
 // Mock the native AppUpdater
 jest.mock('../src/NativeAppUpdater', () => ({
   AppUpdater: {
@@ -20,14 +25,44 @@ jest.mock('../src/NativeAppUpdater', () => ({
 }));
 
 // Mock react-native
-jest.mock('react-native', () => ({
-  Platform: {
-    OS: 'android',
-  },
-  Linking: {
-    openURL: jest.fn(),
-  },
-}));
+jest.mock('react-native', () => {
+  return {
+    Platform: {
+      OS: 'android',
+      select: jest.fn((dict) => dict.android || dict.default),
+    },
+    Linking: {
+      openURL: jest.fn(),
+    },
+    InteractionManager: {
+      runAfterInteractions: jest.fn((cb) => {
+        cb();
+        return { 
+          then: (onF?: () => void) => onF?.(),
+          done: (fn?: () => void) => fn?.(),
+          cancel: jest.fn() 
+        };
+      }),
+    },
+    StyleSheet: {
+      create: <T>(s: T) => s,
+    },
+    View: 'View',
+    Text: 'Text',
+    TouchableOpacity: 'TouchableOpacity',
+    Modal: 'Modal',
+    ScrollView: 'ScrollView',
+    Animated: {
+      Value: jest.fn(() => ({
+        setValue: jest.fn(),
+        interpolate: jest.fn(),
+      })),
+      timing: jest.fn(() => ({ start: jest.fn((cb) => cb?.()) })),
+      spring: jest.fn(() => ({ start: jest.fn((cb) => cb?.()) })),
+      parallel: jest.fn(() => ({ start: jest.fn((cb) => cb?.()) })),
+    },
+  };
+});
 
 describe('useSmartReviewManager', () => {
   const emitEvent = jest.fn();
@@ -36,7 +71,7 @@ describe('useSmartReviewManager', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    Platform.OS = 'android';
+    (Platform as { OS: string }).OS = 'android';
   });
 
   it('should fallback to store review if native prompt is too fast (Android)', async () => {
@@ -129,7 +164,7 @@ describe('useSmartReviewManager', () => {
   });
 
   it('should use deep link for iOS when iosStoreId is provided', async () => {
-    Platform.OS = 'ios';
+    (Platform as { OS: string }).OS = 'ios';
     const { result } = renderHook(() => useSmartReviewManager(
       { enabled: true },
       false,

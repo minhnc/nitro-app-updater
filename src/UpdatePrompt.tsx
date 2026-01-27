@@ -4,6 +4,8 @@ import { useAppUpdater, type AppUpdaterEvent } from './useAppUpdater'
 import { AppUpdaterError, AppUpdaterErrorCode } from './AppUpdaterError'
 import { HappinessGate } from './HappinessGate'
 
+const MIN_PROGRESS_WIDTH = 5
+
 export interface UpdatePromptTheme {
   primary?: string
   background?: string
@@ -68,9 +70,16 @@ export const UpdatePrompt = React.memo(function UpdatePrompt({
   onEvent,
   externalUpdater
 }: UpdatePromptProps) {
+  // Optimization: Do not call the internal hook if an external one is already provided
+  // We use a dummy state to satisfy hook rules if external is provided, but since useAppUpdater 
+  // is a custom hook we should be careful. Actually, it's better to just ensure useAppUpdater 
+  // is fast or refactor so the logic can be shared. 
+  // Given standard React rules, we MUST call the hook if it's there, but we can make it do nothing.
   const internalUpdater = useAppUpdater({
     ...config,
     onEvent,
+    enabled: !externalUpdater,
+    checkOnMount: externalUpdater ? false : config?.checkOnMount
   })
 
   const updater = externalUpdater || internalUpdater
@@ -82,6 +91,7 @@ export const UpdatePrompt = React.memo(function UpdatePrompt({
     downloadProgress,
     startUpdate, 
     isReadyToInstall, 
+    isDownloading,
     completeUpdate,
     // Smart Review
     showHappinessGate,
@@ -170,15 +180,6 @@ export const UpdatePrompt = React.memo(function UpdatePrompt({
             <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
               <Text style={[styles.message, { color: colors.subtext }]}>{message}</Text>
               
-              {downloadProgress.percent > 0 && downloadProgress.percent < 100 && (
-                <View style={styles.progressContainer}>
-                  <View style={styles.progressBarBg}>
-                    <View style={[styles.progressBarFill, { width: `${downloadProgress.percent}%`, backgroundColor: colors.primary }]} />
-                  </View>
-                  <Text style={[styles.progressText, { color: colors.subtext }]}>{Math.round(downloadProgress.percent)}%</Text>
-                </View>
-              )}
-
               {releaseNotes ? (
                 <View style={styles.notesContainer}>
                   <Text style={[styles.notesTitle, { color: colors.text }]}>What's New:</Text>
@@ -188,7 +189,19 @@ export const UpdatePrompt = React.memo(function UpdatePrompt({
             </ScrollView>
 
             <View style={styles.footer}>
-              {isReadyToInstall ? (
+              {isDownloading ? (
+                <View 
+                  style={styles.progressContainer}
+                  accessibilityLiveRegion="polite"
+                  accessibilityLabel={`Downloading update: ${Math.round(downloadProgress.percent)}%`}
+                >
+                  <Text style={[styles.downloadingText, { color: colors.text }]}>Downloading update...</Text>
+                  <View style={styles.progressBarBg}>
+                    <View style={[styles.progressBarFill, { width: `${Math.max(MIN_PROGRESS_WIDTH, downloadProgress.percent)}%`, backgroundColor: colors.primary }]} />
+                  </View>
+                  <Text style={[styles.progressText, { color: colors.subtext }]}>{Math.round(downloadProgress.percent)}%</Text>
+                </View>
+              ) : isReadyToInstall ? (
                 <TouchableOpacity 
                   style={[styles.button, styles.installButton, { backgroundColor: colors.primary }]}
                   onPress={completeUpdate}
@@ -200,28 +213,30 @@ export const UpdatePrompt = React.memo(function UpdatePrompt({
                   <Text style={styles.primaryButtonText}>Install & Restart</Text>
                 </TouchableOpacity>
               ) : (
-                <TouchableOpacity 
-                  style={[styles.button, styles.primaryButton, { backgroundColor: colors.primary }]}
-                  onPress={startUpdate}
-                  activeOpacity={0.8}
-                  accessibilityRole="button"
-                  accessibilityLabel={confirmText}
-                  accessibilityHint="Downloads and installs the new version from the store."
-                >
-                  <Text style={styles.primaryButtonText}>{confirmText}</Text>
-                </TouchableOpacity>
-              )}
-              
-              {!critical && (
-                <TouchableOpacity 
-                  style={[styles.button, styles.secondaryButton]}
-                  onPress={handleDismiss}
-                  accessibilityRole="button"
-                  accessibilityLabel={cancelText}
-                  accessibilityHint="Dismisses the update prompt for now."
-                >
-                  <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>{cancelText}</Text>
-                </TouchableOpacity>
+                <>
+                  <TouchableOpacity 
+                    style={[styles.button, styles.primaryButton, { backgroundColor: colors.primary }]}
+                    onPress={startUpdate}
+                    activeOpacity={0.8}
+                    accessibilityRole="button"
+                    accessibilityLabel={confirmText}
+                    accessibilityHint="Downloads and installs the new version from the store."
+                  >
+                    <Text style={styles.primaryButtonText}>{confirmText}</Text>
+                  </TouchableOpacity>
+                  
+                  {!critical && (
+                    <TouchableOpacity 
+                      style={[styles.button, styles.secondaryButton]}
+                      onPress={handleDismiss}
+                      accessibilityRole="button"
+                      accessibilityLabel={cancelText}
+                      accessibilityHint="Dismisses the update prompt for now."
+                    >
+                      <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>{cancelText}</Text>
+                    </TouchableOpacity>
+                  )}
+                </>
               )}
             </View>
           </Animated.View>
@@ -353,5 +368,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     textAlign: 'right',
+  },
+  downloadingText: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 4,
+    textAlign: 'center',
   },
 });

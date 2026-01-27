@@ -28,6 +28,7 @@ describe('UpdatePrompt', () => {
     downloadProgress: { percent: 0, bytesDownloaded: 0, totalBytes: 0 },
     isDownloadComplete: false,
     isReadyToInstall: false,
+    isDownloading: false,
     
     startUpdate: mockStartUpdate,
     completeUpdate: mockCompleteUpdate,
@@ -103,5 +104,16 @@ describe('UpdatePrompt', () => {
     )
     fireEvent.press(getByText('Install & Restart'))
     expect(mockCompleteUpdate).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows progress bar and hides buttons when downloading', () => {
+    const updater = { ...defaultUpdaterState, isDownloading: true, confirmText: 'Update Now', cancelText: 'Later' }
+    const { getByText, queryByText } = render(
+      <UpdatePrompt externalUpdater={updater} confirmText="Update Now" cancelText="Later" />
+    )
+    
+    expect(getByText('Downloading update...')).toBeTruthy()
+    expect(queryByText('Update Now')).toBeNull()
+    expect(queryByText('Later')).toBeNull()
   })
 })

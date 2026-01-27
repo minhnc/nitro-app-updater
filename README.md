@@ -1,6 +1,12 @@
 # @minhnc/nitro-app-updater
 
-High-performance, lightweight App Update checker for React Native, built with [Nitro Modules](https://nitro.margelo.com).
+[![NPM Version](https://img.shields.io/npm/v/@minhnc/nitro-app-updater.svg)](https://www.npmjs.com/package/@minhnc/nitro-app-updater)
+[![License](https://img.shields.io/npm/l/@minhnc/nitro-app-updater.svg)](https://github.com/minhnc/nitro-app-updater/blob/main/LICENSE)
+[![GitHub Stars](https://img.shields.io/github/stars/minhnc/nitro-app-updater.svg?style=social)](https://github.com/minhnc/nitro-app-updater/stargazers)
+
+**High-performance, JSI-powered In-App Update and Store Review manager for React Native & Expo.**
+
+Leveraging [Nitro Modules](https://nitro.margelo.com), this library provides a lightning-fast way to check for app updates and manage user reviews without the bridge overhead. It supports **Android Play Core** for flexible/immediate updates and **iOS iTunes Lookup** with a built-in **Happiness Gate** to maximize positive store ratings.
 
 Features:
 
@@ -16,6 +22,9 @@ Features:
 | iOS                                               | Android                                               |
 | ------------------------------------------------- | ----------------------------------------------------- |
 | <video src="example/demos/ios.mp4" width="320" /> | <video src="example/demos/android.mp4" width="320" /> |
+
+> [!NOTE]
+> Demo videos are hosted in the repository. If they do not render on your platform (e.g., NPM), please view them on [GitHub](https://github.com/minhnc/nitro-app-updater).
 
 ## Architecture
 
@@ -105,6 +114,7 @@ function MyCustomUpdater() {
     available,
     startUpdate,
     downloadProgress,
+    isDownloading,
     completeUpdate,
     isReadyToInstall,
     requestReview,
@@ -156,7 +166,7 @@ export default function App() {
         config={{
           checkOnMount: true,
           debugMode: __DEV__, // Only enable in development
-          minRequiredVersion: "1.0.0",
+          minRequiredVersion: "1.0.0", // Forced update for users on versions < 1.0.0
           iosCountryCode: "us",
         }}
         title="✨ New Update!"
@@ -198,17 +208,18 @@ Uses standard iTunes Lookup API. No extra config needed.
 
 ## Configuration
 
-| Prop                 | Type       | Description                                              |
-| -------------------- | ---------- | -------------------------------------------------------- |
-| `minRequiredVersion` | `string`   | Minimum version to force update (e.g. "1.5.0")           |
-| `iosCountryCode`     | `string`   | Country code for iOS App Store lookup (default: "us")    |
-| `checkOnMount`       | `boolean`  | Whether to check for updates on mount (default: true)    |
-| `debugMode`          | `boolean`  | Mock update availability for testing (default: false)    |
-| `reviewCooldownDays` | `number`   | Days between in-app review prompts (default: 120)        |
-| `iosStoreId`         | `string`   | iOS App Store numeric ID for fallback URL                |
-| `minOsVersion`       | `string`   | Minimum OS version required (iOS version or Android API) |
-| `onDownloadComplete` | `function` | Callback when flexible update finishes (Android only)    |
-| `onEvent`            | `function` | Unified event callback for analytics/logging             |
+| Prop                 | Type       | Description                                                                  |
+| -------------------- | ---------- | ---------------------------------------------------------------------------- |
+| `minRequiredVersion` | `string`   | Minimum version users must be running to skip a forced update (e.g. "1.5.0") |
+| `iosCountryCode`     | `string`   | Country code for iOS App Store lookup (default: "us")                        |
+| `checkOnMount`       | `boolean`  | Whether to check for updates on mount (default: true)                        |
+| `debugMode`          | `boolean`  | Mock update availability for testing (default: false)                        |
+| `reviewCooldownDays` | `number`   | Days between in-app review prompts (default: 120)                            |
+| `iosStoreId`         | `string`   | iOS App Store numeric ID for fallback URL                                    |
+| `minOsVersion`       | `string`   | Minimum OS version required (iOS version or Android API)                     |
+| `onDownloadComplete` | `function` | Callback when flexible update finishes (Android only)                        |
+| `onEvent`            | `function` | Unified event callback for analytics/logging                                 |
+| `enabled`            | `boolean`  | Whether the updater is enabled (default: true)                               |
 
 ## Analytics & Callbacks
 
@@ -385,8 +396,8 @@ To test this package locally in an **Expo** or **React Native** project:
 3.  **Pack the library**:
 
     ```bash
-    npm pack
-    # Generates a file like minhnc-nitro-app-updater-1.0.0.tgz
+    bun pm pack
+    # Generates a file like minhnc-nitro-app-updater-<version>.tgz
     ```
 
 4.  **Install in your app**:
@@ -413,8 +424,8 @@ A standalone Expo example app is available in the `/example` directory. It demon
 
 ```bash
 cd example
-npm install
-npm run ios    # or npm run android
+bun install
+bun run ios    # or bun run android
 ```
 
 > [!NOTE]
@@ -445,11 +456,30 @@ npm run ios    # or npm run android
 | **Custom Backend Support** | JSON manifest endpoint                                      |
 | **Localization**           | i18n support                                                |
 | **Strict Force Update**    | Non-dismissable prompt                                      |
-| **CI/CD**                  | GitHub Actions                                              |
+
+### Error Codes
+
+The `AppUpdaterError` class includes the following codes:
+
+| Code             | Description                                            |
+| ---------------- | ------------------------------------------------------ |
+| `NOT_SUPPORTED`  | Feature not supported on this platform/version.        |
+| `NETWORK_ERROR`  | Failed to reach store APIs (iTunes/Play Store).        |
+| `STORE_ERROR`    | The store returned an error during the process.        |
+| `USER_CANCELLED` | The user dismissed or cancelled the update.            |
+| `NO_ACTIVITY`    | (Android) No foreground activity found to host the UI. |
+| `UNKNOWN`        | An unexpected error occurred.                          |
+
+### Troubleshooting
+
+- **Android Play Core**: In-App Updates and Reviews require a signed build. They will **not** work in standard debug builds unless using the Internal App Sharing track or a signed APK/AAB uploaded to a testing track.
+- **iOS Store IDs**: Manual review links require a numeric `iosStoreId`. If you see "Invalid Store URL" warnings in logs, ensure you've provided the numeric ID from App Store Connect.
+- **Quota Limits**: Both iOS and Android enforce strict quotas on native review prompts. If a prompt doesn't show, it's likely being suppressed by the OS. The library automatically falls back to opening the store page in these cases when triggered manually.
 
 ## Contributing
 
-Contributions are welcome! Please open an issue or submit a pull request.
+Contributions are welcome!
+Please open an issue or submit a pull request.
 
 ## License
 
