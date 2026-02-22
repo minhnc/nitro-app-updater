@@ -1,6 +1,6 @@
 {
   "name": "@minhnc/nitro-app-updater",
-  "version": "1.1.1",
+  "version": "1.2.1",
   "description": "High-performance, JSI-powered In-App Update and Store Review manager for React Native & Expo. Supports Play Core, iTunes Lookup, and Happiness Gate.",
   "main": "lib/index.js",
   "react-native": "src/index.ts",
@@ -11,8 +11,21 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint \"**/*.{js,ts,tsx}\" --fix",
     "generate": "nitrogen ./src",
-    "test": "jest",
-    "prepublishOnly": "npm run generate && npm run build"
+    "test": "jest --detectOpenHandles",
+    "test:watch": "bun jest --watch",
+    "clean": "rm -rf lib nitrogen *.tgz",
+    "watch": "tsc -w",
+    "check": "bun run lint && bun run typecheck",
+    "pack:local": "bun run clean && bun run generate && bun run build && bun pm pack",
+    "example:ios": "cd example && bun run ios",
+    "example:android": "cd example && bun run android",
+    "example:start": "cd example && bun run start",
+    "example:prebuild": "cd example && bun run prebuild",
+    "example:build:android": "cd example/android && ./gradlew assembleDebug",
+    "example:build:ios": "cd example/ios && pod install && xcodebuild -workspace example.xcworkspace -scheme example -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' build",
+    "example:install": "bun run pack:local && cd example && bun remove @minhnc/nitro-app-updater && bun add ../minhnc-nitro-app-updater-$(node -p \"require('../package.json').version\").tgz && bun run prebuild",
+    "release": "bun run check && bun run test && npm publish --access public",
+    "prepublishOnly": "bun run generate && bun run build"
   },
   "files": [
     "lib",
@@ -22,7 +35,6 @@
     "nitrogen",
     "nitro.json",
     "AppUpdater.podspec",
-    "app.plugin.js",
     "README.md",
     "LICENSE"
   ],
@@ -46,9 +58,9 @@
   "author": "Minh Nguyen",
   "license": "MIT",
   "peerDependencies": {
-    "react": "*",
+    "react": ">=18.0.0",
     "react-native": ">=0.75.0",
-    "react-native-nitro-modules": "*"
+    "react-native-nitro-modules": ">=0.33.1"
   },
   "repository": {
     "type": "git",
@@ -59,8 +71,6 @@
   },
   "homepage": "https://github.com/minhnc/nitro-app-updater#readme",
   "devDependencies": {
-    "@expo/config-plugins": "^54.0.4",
-    "@expo/config-types": "^54.0.10",
     "@react-native/babel-preset": "^0.83.1",
     "@react-native/eslint-config": "^0.83.1",
     "@testing-library/react-native": "^13.3.3",
@@ -72,8 +82,9 @@
     "eslint": "^8.57.1",
     "jest": "^30.2.0",
     "metro-react-native-babel-preset": "^0.77.0",
-    "nitrogen": "0.33.1",
+    "nitrogen": "0.33.9",
     "react": "^18.2.0",
+    "react-native": "0.75.0",
     "react-test-renderer": "^18.2.0",
     "ts-jest": "^29.4.6",
     "typescript": "^5.3.3"

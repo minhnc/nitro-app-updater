@@ -35,11 +35,13 @@ npm login
 
 ### 5. Publish
 
-Publish the package to the npm registry. Since this is a scoped package (`@minhnc`), you must specify public access.
+Use the unified release script to ensure all checks and tests pass before the package is sent to the registry.
 
 ```bash
-npm publish --access public
+bun run release
 ```
+
+_Note: This script automatically handles `--access public` for our scoped package._
 
 ### 6. Push Tags to Git
 

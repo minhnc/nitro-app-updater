@@ -1,8 +1,77 @@
-# Upgrade Guide: @minhnc/nitro-app-updater 1.0.0 → 1.1.0
+# Upgrade Guide: @minhnc/nitro-app-updater
+
+## v1.1.x → v1.2.0
+
+This release focuses on robust error recovery and developer experience, introducing an automatic error state UI and tools to reset local review data.
+
+### Breaking Changes
+
+**None** – This is a fully backward-compatible update.
+
+### 🎨 Type-Safe Error Theming (NEW)
+
+The `UpdatePromptTheme` interface now supports an `error` color to seamlessly integrate the new failure states into your brand's palette.
+
+```typescript
+const customTheme: UpdatePromptTheme = {
+  // ... existing theme properties
+  error: "#EF4444", // New optional error color (defaults to #FF3B30)
+};
+```
+
+### 🔄 Resetting Smart Review (Developer Tool)
+
+If you've hit your Smart Review prompt limits during testing, you can now programmatically clear the internal tracker without clearing app data:
+
+```typescript
+const { resetSmartReview } = useAppUpdater();
+
+// Attach to a hidden dev-menu button
+<Button title="Reset Tracker" onPress={() => resetSmartReview()} />
+```
+
+### 🚨 Improved Error Tracking
+
+The `useAppUpdater` hook now returns the last encountered `error` object, allowing you to build custom failure UI if you prefer not to use the bundled `UpdatePrompt`.
+
+```typescript
+const { error, startUpdate, checkUpdate } = useAppUpdater({
+  iosStoreId: "YOUR_APP_STORE_ID",
+});
+
+if (error) {
+  console.log("Last Error:", error.message);
+}
+```
+
+### 🏛️ Global Provider (NEW)
+
+You can now use `AppUpdaterProvider` to wrap your app and consume the updater state via `useAppUpdaterContext()` anywhere. This eliminates the need to prop-drill the hook's return values deep into your component tree.
+
+```tsx
+// 1. Wrap your app
+<AppUpdaterProvider config={{ iosStoreId: "YOUR_APP_STORE_ID" }}>
+  <YourApp />
+</AppUpdaterProvider>;
+
+// 2. Consume anywhere
+function MyScreen() {
+  const { requestReview, canRequestReview } = useAppUpdaterContext();
+  // ...
+}
+```
+
+### 🗑️ Deprecations
+
+- `minOsVersion` configuration is now **deprecated**. The library automatically extracts the required minimum OS version directly from the iTunes App Store API for iOS, maintaining dynamic compliance without manual config. On Android, the Google Play Store inherently handles OS availability. You can safely remove this prop from your configuration.
+
+---
+
+## v1.0.0 → v1.1.0
 
 This guide helps you upgrade from v1.0.0 to v1.1.0 and adopt all new features.
 
-## Breaking Changes
+### Breaking Changes
 
 **None** – This is a fully backward-compatible update. Your existing code will work as-is.
 
@@ -138,6 +207,7 @@ const { openStoreReviewPage } = useAppUpdater({
 ```typescript
 // Enable debug mode for testing
 useAppUpdater({
+  iosStoreId: "YOUR_APP_STORE_ID",
   debugMode: __DEV__, // Mock updates in dev
   reviewCooldownDays: 0, // Allow repeated reviews in dev
   smartReview: {
@@ -150,7 +220,6 @@ useAppUpdater({
 
 ```bash
 # Run the app
-cd /Users/minh/dev/vibe/DealPing/mobile
 npx expo run:ios
 ```
 
@@ -206,6 +275,19 @@ export default function App() {
 ---
 
 ## What's New Summary
+
+### v1.2.0
+
+- ✅ **Automatic error recovery UI** with built-in retry in `UpdatePrompt`
+- ✅ **Error theming** via `UpdatePromptTheme.error`
+- ✅ **`resetSmartReview`** helper for development testing
+- ✅ **Exposed `error` state** from `useAppUpdater`
+- ✅ **`iosLookupTimeoutMs`** configuration option
+- ✅ **`refreshOnForeground`** option in `useAppUpdater` to automatically check for updates on resume
+- ✅ **`APP_NOT_OWNED` error handling** for side-loaded Android builds
+- ✅ **Removed Expo config plugin** — no longer needed with RN 0.75+/Expo SDK 51+
+
+### v1.1.x
 
 - ✅ **Type-safe theming** with `UpdatePromptTheme` interface
 - ✅ **Smart Review timing** with configurable win thresholds

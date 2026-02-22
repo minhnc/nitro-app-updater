@@ -9,8 +9,8 @@ describe('compareVersions', () => {
   });
 
   it('handles different lengths', () => {
-    expect(compareVersions('1.0', '1.0.0')).toBe(-1); // 1.0 is treated as 1.0
-    expect(compareVersions('1.0.0', '1.0')).toBe(1);
+    expect(compareVersions('1.0', '1.0.0')).toBe(0); // 1.0 is treated as 1.0.0
+    expect(compareVersions('1.0.0', '1.0')).toBe(0);
     expect(compareVersions('1.1', '1.0.1')).toBe(1);
   });
 
@@ -34,6 +34,11 @@ describe('compareVersions', () => {
 describe('checkIOSUpdate', () => {
   beforeEach(() => {
     global.fetch = jest.fn()
+    jest.useFakeTimers()
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
   })
 
   it('should handle successful iTunes API response', async () => {
@@ -49,6 +54,7 @@ describe('checkIOSUpdate', () => {
     expect(result).toEqual({
       version: '1.2.0',
       trackViewUrl: 'url',
+      minimumOsVersion: '0',
       releaseNotes: 'notes'
     })
   })
@@ -70,5 +76,34 @@ describe('checkIOSUpdate', () => {
     })
 
     await expect(checkIOSUpdate('bundle', 'us')).rejects.toThrow('iTunes API failed with status 500')
+  })
+
+  it('should throw on timeout', async () => {
+    ;(global.fetch as jest.Mock).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (...args: any[]) => new Promise((resolve, reject) => {
+        const signal = args[1]?.signal as AbortSignal | undefined;
+        if (signal) {
+          signal.addEventListener('abort', () => {
+            const err = new Error('The operation was aborted');
+            err.name = 'AbortError';
+            reject(err);
+          });
+        }
+      })
+    );
+
+    const checkPromise = checkIOSUpdate('bundle', 'us');
+    jest.advanceTimersByTime(10500); // Exceed 10s timeout
+    await expect(checkPromise).rejects.toThrow('iTunes API request timed out');
+  })
+
+  it('should throw on empty bundleId', async () => {
+    await expect(checkIOSUpdate('', 'us')).rejects.toThrow('Bundle ID is empty or invalid')
+  })
+
+  it('should wrap network errors as iTunes API failed', async () => {
+    ;(global.fetch as jest.Mock).mockRejectedValue(new TypeError('Network request failed'))
+    await expect(checkIOSUpdate('bundle', 'us')).rejects.toThrow('Network request failed')
   })
 })

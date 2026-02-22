@@ -1,48 +1,24 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ScrollView, SafeAreaView, Platform } from 'react-native';
-import { useAppUpdater, UpdatePrompt, type AppUpdaterEvent, type UpdatePromptTheme } from '@minhnc/nitro-app-updater';
+import { AppUpdaterProvider, useAppUpdaterContext, UpdatePrompt, type AppUpdaterEvent, type UpdatePromptTheme } from '@minhnc/nitro-app-updater';
 import { StatusBar } from 'expo-status-bar';
 
-export default function App() {
-  const [logs, setLogs] = useState<string[]>([]);
-  const [debugMode, setDebugMode] = useState(true); // Default to true for easy emulator testing
+// Example of type-safe theming with the new UpdatePromptTheme interface
+const customTheme: UpdatePromptTheme = {
+  primary: '#2563EB',
+  background: 'rgba(255, 255, 255, 0.98)',
+  text: '#1E293B',
+  subtext: '#64748B',
+  overlay: 'rgba(15, 23, 42, 0.6)',
+  error: '#EF4444', // New optional error color (defaults to #FF3B30)
+};
 
-  // Example of type-safe theming with the new UpdatePromptTheme interface
-  const customTheme: UpdatePromptTheme = {
-    primary: '#2563EB',
-    background: 'rgba(255, 255, 255, 0.98)',
-    text: '#1E293B',
-    subtext: '#64748B',
-    overlay: 'rgba(15, 23, 42, 0.6)',
-  };
-
-  const addLog = (message: string) => {
-    setLogs((prev) => [message, ...prev.slice(0, 19)]);
-  };
-
-  const handleEvent = (event: AppUpdaterEvent) => {
-    addLog(`${event.type}: ${JSON.stringify(event.payload)}`);
-  };
-
-  const updater = useAppUpdater({
-    debugMode: debugMode,
-    checkOnMount: false,
-    reviewCooldownDays: debugMode ? 0 : 120,
-    onEvent: handleEvent,
-    iosStoreId: '6514638249', // Replace with your numeric App Store ID (required for iOS manual review links)
-    minOsVersion: '13.0',
-    smartReview: {
-      enabled: true,
-      cooldownDays: debugMode ? 0 : 120,
-      winsBeforePrompt: 3,
-      onNegativeFeedback: () => {
-        addLog('Negative feedback recorded internally');
-      }
-    },
-    onDownloadComplete: () => {
-      addLog('Update download finished!');
-    }
-  });
+function MainApp({ logs, debugMode, setDebugMode }: { 
+  logs: string[], 
+  debugMode: boolean, 
+  setDebugMode: (val: boolean) => void,
+}) {
+  const updater = useAppUpdaterContext();
 
   const {
     available,
@@ -58,7 +34,8 @@ export default function App() {
     canRequestReview,
     lastReviewPromptDate,
     recordWin,
-    showHappinessGate
+    showHappinessGate,
+    resetSmartReview
   } = updater;
 
   // Derive display states
@@ -137,20 +114,24 @@ export default function App() {
 
             <TouchableOpacity 
               style={[styles.pillButton, !canRequestReview && styles.disabledButton]} 
-              onPress={requestReview}
+              onPress={() => requestReview()}
               disabled={!canRequestReview}
             >
               <Text style={styles.buttonText}>Request Review</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.pillButton, styles.storeButton]} onPress={openStoreReviewPage}>
+            <TouchableOpacity style={[styles.pillButton, styles.storeButton]} onPress={() => openStoreReviewPage()}>
               <Text style={styles.buttonText}>Manual Store Rate</Text>
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity style={styles.winButton} onPress={recordWin}>
+          <TouchableOpacity style={styles.winButton} onPress={() => recordWin()}>
             <Text style={styles.winButtonText}>Record Positive Action 🏆</Text>
             <Text style={styles.winButtonSubtext}>Simulate a "user win" for Smart Review</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.secondaryButton, styles.resetButton]} onPress={() => resetSmartReview()}>
+            <Text style={styles.secondaryButtonText}>Reset Smart Review Tracker</Text>
           </TouchableOpacity>
           
           {showHappinessGate && (
@@ -202,7 +183,7 @@ export default function App() {
         </View>
       </ScrollView>
 
-      {/* Pass the shared updater state to the drop-in UI component */}
+      {/* Pass the shared context state to the drop-in UI component */}
       <UpdatePrompt 
         externalUpdater={updater}
         config={{
@@ -215,9 +196,48 @@ export default function App() {
           negativeText: "Not really 😕",
           dismissText: "Maybe Later",
         }}
-        onEvent={handleEvent}
       />
     </SafeAreaView>
+  );
+}
+
+export default function App() {
+  const [logs, setLogs] = useState<string[]>([]);
+  const [debugMode, setDebugMode] = useState(true); // Default to true for easy emulator testing
+
+  const addLog = (message: string) => {
+    setLogs((prev) => [message, ...prev.slice(0, 19)]);
+  };
+
+  const handleEvent = (event: AppUpdaterEvent) => {
+    addLog(`${event.type}: ${JSON.stringify(event.payload)}`);
+  };
+
+  return (
+    <AppUpdaterProvider config={{
+      debugMode: debugMode,
+      checkOnMount: false,
+      reviewCooldownDays: debugMode ? 0 : 120,
+      onEvent: handleEvent,
+      iosStoreId: '6514638249', // Replace with your numeric App Store ID (required for iOS manual review links)
+      smartReview: {
+        enabled: true,
+        cooldownDays: debugMode ? 0 : 120,
+        winsBeforePrompt: 3,
+        onNegativeFeedback: () => {
+          addLog('Negative feedback recorded internally');
+        }
+      },
+      onDownloadComplete: () => {
+        addLog('Update download finished!');
+      }
+    }}>
+      <MainApp 
+        logs={logs} 
+        debugMode={debugMode} 
+        setDebugMode={setDebugMode} 
+      />
+    </AppUpdaterProvider>
   );
 }
 
@@ -368,6 +388,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     width: '47%',
+  },
+  resetButton: {
+    width: '100%',
+    marginTop: 16,
   },
   activeButton: {
     backgroundColor: '#EBF2FF',

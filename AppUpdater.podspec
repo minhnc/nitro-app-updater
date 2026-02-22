@@ -6,12 +6,13 @@ Pod::Spec.new do |s|
   s.name         = "AppUpdater"
   s.version      = package["version"]
   s.summary      = package["description"]
-  s.homepage     = package["homepage"] || "https://github.com/example/app-updater"
+  s.homepage     = package["homepage"] || "https://github.com/minhnc/nitro-app-updater"
   s.license      = package["license"]
   s.authors      = package["author"]
 
   s.platforms    = { :ios => "13.4" }
-  s.source       = { :git => "https://github.com/example/app-updater.git", :tag => "#{s.version}" }
+  s.swift_version = "5.9"
+  s.source       = { :git => "https://github.com/minhnc/nitro-app-updater.git", :tag => "#{s.version}" }
   s.module_name  = "AppUpdater"
 
   s.source_files = "ios/**/*.{swift,h,m,mm}"

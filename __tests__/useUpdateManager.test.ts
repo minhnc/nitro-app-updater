@@ -16,9 +16,8 @@ jest.mock('../src/NativeAppUpdater', () => ({
   },
 }));
 
-jest.mock('../src/versionCheck', () => ({
-  checkIOSUpdate: jest.fn(),
-  compareVersions: jest.fn((v1, v2) => {
+jest.mock('../src/versionCheck', () => {
+  const mockCompareVersions = (v1: string, v2: string) => {
     const p1 = v1.split('.').map(Number);
     const p2 = v2.split('.').map(Number);
     for (let i = 0; i < Math.max(p1.length, p2.length); i++) {
@@ -28,13 +27,16 @@ jest.mock('../src/versionCheck', () => ({
       if (n1 < n2) return -1;
     }
     return 0;
-  }),
-}));
+  };
+  return {
+    checkIOSUpdate: jest.fn(),
+    compareVersions: mockCompareVersions,
+  };
+});
 
 describe('useUpdateManager', () => {
   const emitEvent = jest.fn();
   const iosCountryCode = 'us';
-  const minOsVersion = '';
   const minRequiredVersion = '';
 
   beforeEach(() => {
@@ -57,8 +59,8 @@ describe('useUpdateManager', () => {
     const { result } = renderHook(() => useUpdateManager(
       false,
       iosCountryCode,
-      minOsVersion,
       minRequiredVersion,
+      undefined, // iosLookupTimeoutMs
       emitEvent
     ));
 
@@ -85,8 +87,8 @@ describe('useUpdateManager', () => {
     const { result } = renderHook(() => useUpdateManager(
       false,
       iosCountryCode,
-      minOsVersion,
       minRequiredVersion,
+      undefined, // iosLookupTimeoutMs
       emitEvent
     ));
 
@@ -99,16 +101,19 @@ describe('useUpdateManager', () => {
     expect(result.current.updateState.trackViewUrl).toBe('https://store.com');
   });
 
-  it('should respect minOsVersion', async () => {
-    Object.defineProperty(Platform, 'OS', { value: 'android', configurable: true });
-    Object.defineProperty(Platform, 'Version', { value: 25, configurable: true });
-    (AppUpdater.checkPlayStoreUpdate as jest.Mock).mockResolvedValue({ available: true, versionCode: 100 });
+  it('should respect minimumOsVersion from iTunes lookup', async () => {
+    Object.defineProperty(Platform, 'OS', { value: 'ios', configurable: true });
+    Object.defineProperty(Platform, 'Version', { value: '14.0', configurable: true });
+    (checkIOSUpdate as jest.Mock).mockResolvedValue({ 
+      version: '1.5.0', 
+      minimumOsVersion: '15.0' // Higher than current OS
+    });
 
     const { result } = renderHook(() => useUpdateManager(
       false,
       iosCountryCode,
-      '26', // Required
       minRequiredVersion,
+      undefined, // iosLookupTimeoutMs
       emitEvent
     ));
 
@@ -120,6 +125,24 @@ describe('useUpdateManager', () => {
     expect(result.current.updateState.available).toBe(false);
   });
 
+  it('should return simulated update in debugMode on iOS', async () => {
+    Platform.OS = 'ios';
+    const { result } = renderHook(() => useUpdateManager(
+      true, // debugMode
+      iosCountryCode,
+      minRequiredVersion,
+      undefined,
+      emitEvent
+    ));
+
+    await act(async () => {
+      await result.current.checkUpdate(true);
+    });
+
+    expect(result.current.updateState.available).toBe(true);
+    expect(result.current.updateState.version).toBe('9.9.9');
+  });
+
   it('should identify critical updates based on minRequiredVersion', async () => {
     Platform.OS = 'ios';
     (checkIOSUpdate as jest.Mock).mockResolvedValue({ version: '1.5.0' });
@@ -127,8 +150,8 @@ describe('useUpdateManager', () => {
     const { result } = renderHook(() => useUpdateManager(
       false,
       iosCountryCode,
-      minOsVersion,
       '1.5.0', // This version makes it critical
+      undefined, // iosLookupTimeoutMs
       emitEvent
     ));
 
@@ -146,8 +169,8 @@ describe('useUpdateManager', () => {
     const { result } = renderHook(() => useUpdateManager(
       false,
       iosCountryCode,
-      minOsVersion,
       minRequiredVersion,
+      undefined, // iosLookupTimeoutMs
       emitEvent
     ));
 
@@ -177,8 +200,8 @@ describe('useUpdateManager', () => {
     const { result } = renderHook(() => useUpdateManager(
       false,
       iosCountryCode,
-      minOsVersion,
       minRequiredVersion,
+      undefined, // iosLookupTimeoutMs
       emitEvent
     ));
 
@@ -187,7 +210,27 @@ describe('useUpdateManager', () => {
       expect(state.available).toBe(false);
     });
 
-    expect(emitEvent).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'update_dismissed' }));
+    expect(emitEvent).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'update_failed' }));
+  });
+
+  it('should handle Play Store error -10 gracefully', async () => {
+    const error = new Error('APP_NOT_OWNED: App is not installed from Google Play. -10: Install Error(-10)');
+    (AppUpdater.checkPlayStoreUpdate as jest.Mock).mockRejectedValue(error);
+
+    const { result } = renderHook(() => useUpdateManager(
+      false,
+      iosCountryCode,
+      minRequiredVersion,
+      undefined, // iosLookupTimeoutMs
+      emitEvent
+    ));
+
+    await act(async () => {
+      const state = await result.current.checkUpdate(true);
+      expect(state.available).toBe(false);
+    });
+
+    expect(emitEvent).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'update_failed' }));
   });
 
   it('should clear the cache when clearUpdateCache is called', async () => {
@@ -196,8 +239,8 @@ describe('useUpdateManager', () => {
     const { result } = renderHook(() => useUpdateManager(
       false,
       iosCountryCode,
-      minOsVersion,
       minRequiredVersion,
+      undefined, // iosLookupTimeoutMs
       emitEvent
     ));
 

@@ -28,15 +28,14 @@ description: Best practices and troubleshooting steps for developing React Nativ
 3. Copy the exact method signatures from the generated spec to your implementation class.
 4. **Android Critical**: Ensure `ActivityEventListener` overrides (like `onActivityResult`) use **non-nullable** types (`Activity`, `Intent`) if the interface requires it.
 
-## 3. Expo Plugin Compatibility
+## 3. Module Resolution Compatibility
 
 **Context**: Build error `... is not a function` or plugin resolution failure involved `import`/`require`.
-**Root Cause**: Config Plugins run in Node.js (CommonJS), but your project might be transpiling them to ESM.
+**Root Cause**: Some configurations run in Node.js (CommonJS), but your project might be transpiling them to ESM.
 **Fix**:
 
 1. In `tsconfig.json`, ensure `"module": "commonjs"`.
-2. In `package.json`, avoid `"type": "module"` if possible, or isolate the plugin build config.
-3. In `app.plugin.js`, use `module.exports = require('./lib/plugin').default`.
+2. In `package.json`, avoid `"type": "module"` if possible.
 
 ## 4. Emulator Testing Limitations
 
@@ -113,6 +112,7 @@ description: Best practices and troubleshooting steps for developing React Nativ
      return value.bind(hybridObject);
    }
    ```
+
 ## 9. Android Dependency Resolution (`nitro-modules` not found)
 
 **Context**: Build error `Could not find com.margelo.nitro:nitro-modules:0.33.1`.
@@ -174,16 +174,57 @@ repositories {
    #endif
    ```
 
-## 12. Robust Expo Config Plugin Setup
+## 12. UI Interaction Reliability (React Native)
 
-**Context**: `PluginError: Unable to resolve a valid config plugin`.
-**Root Cause**: Expo expects `app.plugin.js` at root, and Node resolution can fail if using `module: esnext`.
+**Context**: State updates or analytics events triggered via `InteractionManager.runAfterInteractions` fail to execute.
+**Root Cause**: If the app has a continuous animation (looping lottie, animated background, infinite list scroll), the interaction queue may never empty, stalling your callbacks.
+**Fix**: Implement a `runWhenReady` helper with a timeout fallback.
+
+```typescript
+const runWhenReady = (cb: () => void) => {
+  let called = false;
+  const timeoutFallback = setTimeout(() => {
+    if (!called) {
+      called = true;
+      cb();
+    }
+  }, 500);
+
+  const g = global as any;
+  if (typeof g.requestIdleCallback !== "undefined") {
+    g.requestIdleCallback(() => {
+      if (!called) {
+        called = true;
+        clearTimeout(timeoutFallback);
+        cb();
+      }
+    });
+  } else {
+    InteractionManager.runAfterInteractions(() => {
+      if (!called) {
+        called = true;
+        clearTimeout(timeoutFallback);
+        cb();
+      }
+    });
+  }
+};
+```
+
+## 13. Native-First Delegation (JSI over Linking)
+
+**Context**: Using `Linking.openURL` for OS-specific tasks like openning the Store.
+**Root Cause**: Relying on ambient JS browser APIs creates parity logic in JS (e.g. constructing `itms-apps` URLs) which is better handled in the native bridge.
+**Fix**: Delegate OS-specific actions to your JSI `HybridObject`.
+
+- **Pattern**: Instead of `Linking.openURL`, call `AppUpdater.openStore(id)`.
+- **Reasoning**: This allows the native side to use `UIApplication.shared.open` or Google Play Core intents directly, which are more resilient and easier to mock in native tests.
+
+## 14. Mandatory Config Validation
+
+**Context**: Optional configuration properties causing runtime warnings (e.g. `iosStoreId`).
+**Root Cause**: Some features (like "Rate Us") cannot work without specific identifiers. Making them optional in the API leads to "silent failures" in production.
 **Fix**:
 
-1. Create a root `app.plugin.js` proxy:
-   ```js
-   module.exports = require("./lib/expo-plugin").default;
-   ```
-2. Set `tsconfig.json` to `"module": "commonjs"` and `"moduleResolution": "node"`.
-3. Add `app.plugin.js` to `files` in `package.json`.
-4. Run `npm pack` locally to test structure before publishing.
+1. Make critical cross-platform identifiers **mandatory** in your TypeScript types.
+2. Throw clear errors or log `__DEV__` warnings during hook/provider initialization rather than when the user clicks a button.

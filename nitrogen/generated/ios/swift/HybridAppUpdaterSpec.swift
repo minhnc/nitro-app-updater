@@ -5,7 +5,6 @@
 /// Copyright © Marc Rousavy @ Margelo
 ///
 
-import Foundation
 import NitroModules
 
 /// See ``HybridAppUpdaterSpec``
@@ -16,10 +15,10 @@ public protocol HybridAppUpdaterSpec_protocol: HybridObject {
   // Methods
   func getCurrentVersion() throws -> String
   func getBundleId() throws -> String
-  func openStore(storeId: String) throws -> Void
-  func openStoreReviewPage(storeId: String) throws -> Void
+  func openStore(storeId: String) throws -> Promise<Void>
+  func openStoreReviewPage(storeId: String) throws -> Promise<Void>
   func checkPlayStoreUpdate(debugMode: Bool?) throws -> Promise<AppUpdateStatus>
-  func startInAppUpdate(immediate: Bool) throws -> Promise<Void>
+  func startInAppUpdate() throws -> Promise<Void>
   func startFlexibleUpdate(onProgress: @escaping (_ bytesDownloaded: Double, _ totalBytes: Double) -> Void) throws -> Promise<Void>
   func completeFlexibleUpdate() throws -> Promise<Void>
   func requestInAppReview() throws -> Promise<Void>

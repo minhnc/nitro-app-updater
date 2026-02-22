@@ -27,9 +27,6 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    },
-    "plugins": [
-      "@minhnc/nitro-app-updater"
-    ]
+    }
   }
 }

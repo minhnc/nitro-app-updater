@@ -28,8 +28,6 @@ class AppUpdaterPackage : TurboReactPackage() {
 
     override fun getReactModuleInfoProvider(): ReactModuleInfoProvider {
         Log.i(TAG, "getReactModuleInfoProvider() called")
-        // Ensure initialization whenever the package is queried
-        AppUpdaterOnLoad.initializeNative()
         return ReactModuleInfoProvider { emptyMap() }
     }
 }

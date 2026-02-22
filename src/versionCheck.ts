@@ -1,4 +1,4 @@
-// Utility file for version comparison
+import { AppUpdaterError, AppUpdaterErrorCode } from './AppUpdaterError'
 
 
 /**
@@ -10,82 +10,128 @@
  * - 0 if v1 == v2
  */
 export function compareVersions(v1: string, v2: string): number {
-  // Split by dot or hyphen to handle 1.0.0-beta.1 -> ["1", "0", "0", "beta", "1"]
-  // This is a simple strategy: stricter semver parsing might be needed for complex cases,
-  // but this covers standard X.Y.Z and X.Y.Z-suffix patterns.
-  const splitVersion = (v: string) => v.split(/[.-]/).filter(Boolean)
-  
-  const parts1 = splitVersion(v1)
-  const parts2 = splitVersion(v2)
+  // Split into [release, preRelease?]
+  const [rel1 = '', pre1] = v1.split('-', 2)
+  const [rel2 = '', pre2] = v2.split('-', 2)
+
+  const parts1 = rel1.split('.').filter(Boolean)
+  const parts2 = rel2.split('.').filter(Boolean)
   const len = Math.max(parts1.length, parts2.length)
 
+  // Compare release parts numerically
   for (let i = 0; i < len; i++) {
     const p1Raw = parts1[i]
     const p2Raw = parts2[i]
-
-    // If one is shorter: "1.0" < "1.0.1" usually, but "1.0" > "1.0-beta" is tricky.
-    // Commonly in semver: 1.0.0 > 1.0.0-beta. 
-    // If we run out of parts, the longer one usually wins, UNLESS it's a pre-release (-) attached.
-    // However, our split logic treats '-' as a separator. 
-    // Let's stick to a simple alphanumeric comparison for segments.
+    const n1 = parseInt(p1Raw || '0', 10)
+    const n2 = parseInt(p2Raw || '0', 10)
     
-    const p1Num = parseInt(p1Raw || '', 10)
-    const p2Num = parseInt(p2Raw || '', 10)
-    
-    const p1IsNum = p1Raw !== undefined && !isNaN(p1Num) && String(p1Num) === p1Raw
-    const p2IsNum = p2Raw !== undefined && !isNaN(p2Num) && String(p2Num) === p2Raw
+    if (n1 > n2) return 1
+    if (n1 < n2) return -1
+  }
 
-    if (p1IsNum && p2IsNum) {
-      if (p1Num > p2Num) return 1
-      if (p1Num < p2Num) return -1
+  // Release parts are equal -> compare pre-release
+  // No pre-release > has pre-release (1.0.0 > 1.0.0-beta)
+  if (!pre1 && pre2) return 1
+  if (pre1 && !pre2) return -1
+  if (!pre1 && !pre2) return 0
+
+  // Both have pre-release — compare dot-separated identifiers
+  const preParts1 = pre1!.split('.')
+  const preParts2 = pre2!.split('.')
+  const preLen = Math.max(preParts1.length, preParts2.length)
+
+  for (let i = 0; i < preLen; i++) {
+    const a = preParts1[i]
+    const b = preParts2[i]
+    
+    // Shorter set of pre-release identifiers is lower priority? 
+    // Spec says: "A larger set of pre-release fields has a higher precedence than a smaller set, if all of the preceding identifiers are equal."
+    // e.g. 1.0.0-alpha.1 > 1.0.0-alpha
+    if (a === undefined && b !== undefined) return -1
+    if (a !== undefined && b === undefined) return 1
+    
+    const aNum = parseInt(a!, 10)
+    const bNum = parseInt(b!, 10)
+    const aIsNum = !isNaN(aNum) && String(aNum) === a
+    const bIsNum = !isNaN(bNum) && String(bNum) === b
+    
+    if (aIsNum && bIsNum) {
+      if (aNum > bNum) return 1
+      if (aNum < bNum) return -1
     } else {
-      // String comparison for non-numeric parts (pre-release)
-      // OR one version has run out of parts (undefined)
-      
-      if (p1Raw === undefined && p2Raw === undefined) return 0
-      
-      // If one is undefined, we need to determine if it's a release vs pre-release case
-      if (p1Raw === undefined) {
-        // v1 ended. If v2's next part is non-numeric, v1 is a release version and v2 is pre-release.
-        // SemVer: Release > Pre-release (1.0.0 > 1.0.0-alpha)
-        return p2IsNum ? -1 : 1
-      }
-      if (p2Raw === undefined) {
-        // v2 ended. Reverse of above.
-        return p1IsNum ? 1 : -1
-      }
-
-      // Both are defined, perform lexical comparison
-      if (p1Raw > p2Raw) return 1
-      if (p1Raw < p2Raw) return -1
+      // Numeric < alphabetic in semver (identifiers consisting of only digits are compared numerically)
+      // Identifiers with letters or hyphens are compared lexically in ASCII sort order.
+      // Numeric identifiers always have lower precedence than non-numeric identifiers.
+      if (aIsNum && !bIsNum) return -1
+      if (!aIsNum && bIsNum) return 1
+      if (a! > b!) return 1
+      if (a! < b!) return -1
     }
   }
   return 0
 }
 
-interface iTunesResult {
+export interface ITunesLookupResult {
   version: string
   trackViewUrl: string
+  minimumOsVersion: string
   releaseNotes?: string
 }
 
-export async function checkIOSUpdate(bundleId: string, country = 'us'): Promise<iTunesResult | null> {
-  // Allow errors to bubble up to useUpdateManager for proper handling
-  const url = `https://itunes.apple.com/lookup?bundleId=${bundleId}&country=${country}&t=${Date.now()}`
-  const response = await fetch(url)
-  if (!response.ok) {
-    throw new Error(`iTunes API failed with status ${response.status}`)
+export async function checkIOSUpdate(bundleId: string, country = 'us', timeout = 10000): Promise<ITunesLookupResult | null> {
+  // Validate bundleId
+  if (!bundleId || bundleId.trim() === '') {
+    throw new AppUpdaterError(AppUpdaterErrorCode.STORE_ERROR, 'Bundle ID is empty or invalid')
   }
-  const data = await response.json()
+
+  // Allow errors to bubble up to useUpdateManager for proper handling
+  // Fetch from iTunes API (timestamp removed to allow HTTP caching)
+  const url = `https://itunes.apple.com/lookup?bundleId=${encodeURIComponent(bundleId)}&country=${encodeURIComponent(country)}`
   
-  if (data.resultCount > 0) {
-    const result = data.results[0]
+  // Abort request after timeout
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeout) // Use configurable timeout
+  
+  try {
+    const response = await fetch(url, { signal: controller.signal })
+    if (!response.ok) {
+      throw new AppUpdaterError(
+        AppUpdaterErrorCode.NETWORK_ERROR, 
+        `iTunes API failed with status ${response.status}`
+      )
+    }
+    const data = (await response.json()) as Record<string, unknown>
+    
+    if (!data || !Array.isArray(data.results) || data.results.length === 0) {
+      // In versionCheck.ts, we don't have access to debugMode. Just return null.
+      return null
+    }
+
+    const result = data.results[0] as { 
+      version?: unknown; 
+      trackViewUrl?: string; 
+      releaseNotes?: string;
+      minimumOsVersion?: string;
+    }
+
+    if (!result?.version || typeof result.version !== 'string') return null
+    
     return {
       version: result.version,
-      trackViewUrl: result.trackViewUrl,
-      releaseNotes: result.releaseNotes
+      trackViewUrl: typeof result.trackViewUrl === 'string' ? result.trackViewUrl : '',
+      minimumOsVersion: typeof result.minimumOsVersion === 'string' ? result.minimumOsVersion : '0',
+      releaseNotes: typeof result.releaseNotes === 'string' ? result.releaseNotes : undefined
     }
+  } catch (e: unknown) {
+    if (e instanceof AppUpdaterError) throw e
+    if (e instanceof Error && e.name === 'AbortError') {
+      throw new AppUpdaterError(AppUpdaterErrorCode.NETWORK_ERROR, 'iTunes API request timed out')
+    }
+    throw new AppUpdaterError(
+      AppUpdaterErrorCode.NETWORK_ERROR,
+      e instanceof Error ? e.message : String(e)
+    )
+  } finally {
+    clearTimeout(timeoutId)
   }
-  
-  return null
 }

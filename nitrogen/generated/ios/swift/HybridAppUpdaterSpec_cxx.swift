@@ -5,7 +5,6 @@
 /// Copyright © Marc Rousavy @ Margelo
 ///
 
-import Foundation
 import NitroModules
 
 /**
@@ -150,24 +149,40 @@ open class HybridAppUpdaterSpec_cxx {
   }
   
   @inline(__always)
-  public final func openStore(storeId: std.string) -> bridge.Result_void_ {
+  public final func openStore(storeId: std.string) -> bridge.Result_std__shared_ptr_Promise_void___ {
     do {
-      try self.__implementation.openStore(storeId: String(storeId))
-      return bridge.create_Result_void_()
+      let __result = try self.__implementation.openStore(storeId: String(storeId))
+      let __resultCpp = { () -> bridge.std__shared_ptr_Promise_void__ in
+        let __promise = bridge.create_std__shared_ptr_Promise_void__()
+        let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_void__(__promise)
+        __result
+          .then({ __result in __promiseHolder.resolve() })
+          .catch({ __error in __promiseHolder.reject(__error.toCpp()) })
+        return __promise
+      }()
+      return bridge.create_Result_std__shared_ptr_Promise_void___(__resultCpp)
     } catch (let __error) {
       let __exceptionPtr = __error.toCpp()
-      return bridge.create_Result_void_(__exceptionPtr)
+      return bridge.create_Result_std__shared_ptr_Promise_void___(__exceptionPtr)
     }
   }
   
   @inline(__always)
-  public final func openStoreReviewPage(storeId: std.string) -> bridge.Result_void_ {
+  public final func openStoreReviewPage(storeId: std.string) -> bridge.Result_std__shared_ptr_Promise_void___ {
     do {
-      try self.__implementation.openStoreReviewPage(storeId: String(storeId))
-      return bridge.create_Result_void_()
+      let __result = try self.__implementation.openStoreReviewPage(storeId: String(storeId))
+      let __resultCpp = { () -> bridge.std__shared_ptr_Promise_void__ in
+        let __promise = bridge.create_std__shared_ptr_Promise_void__()
+        let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_void__(__promise)
+        __result
+          .then({ __result in __promiseHolder.resolve() })
+          .catch({ __error in __promiseHolder.reject(__error.toCpp()) })
+        return __promise
+      }()
+      return bridge.create_Result_std__shared_ptr_Promise_void___(__resultCpp)
     } catch (let __error) {
       let __exceptionPtr = __error.toCpp()
-      return bridge.create_Result_void_(__exceptionPtr)
+      return bridge.create_Result_std__shared_ptr_Promise_void___(__exceptionPtr)
     }
   }
   
@@ -198,9 +213,9 @@ open class HybridAppUpdaterSpec_cxx {
   }
   
   @inline(__always)
-  public final func startInAppUpdate(immediate: Bool) -> bridge.Result_std__shared_ptr_Promise_void___ {
+  public final func startInAppUpdate() -> bridge.Result_std__shared_ptr_Promise_void___ {
     do {
-      let __result = try self.__implementation.startInAppUpdate(immediate: immediate)
+      let __result = try self.__implementation.startInAppUpdate()
       let __resultCpp = { () -> bridge.std__shared_ptr_Promise_void__ in
         let __promise = bridge.create_std__shared_ptr_Promise_void__()
         let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_void__(__promise)

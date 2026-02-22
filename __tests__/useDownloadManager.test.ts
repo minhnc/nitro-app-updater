@@ -1,7 +1,8 @@
 import { renderHook, act } from '@testing-library/react-native';
 import { useDownloadManager } from '../src/useDownloadManager';
 import { AppUpdater } from '../src/NativeAppUpdater';
-import { Platform, Linking } from 'react-native';
+import { Platform } from 'react-native';
+import { AppUpdaterError } from '../src/AppUpdaterError';
 
 // Mock dependencies
 jest.mock('../src/NativeAppUpdater', () => ({
@@ -9,28 +10,26 @@ jest.mock('../src/NativeAppUpdater', () => ({
     startFlexibleUpdate: jest.fn(),
     startInAppUpdate: jest.fn(),
     completeFlexibleUpdate: jest.fn(),
+    openStore: jest.fn(),
     getBundleId: jest.fn(() => 'com.example.app'),
   },
 }));
 
-jest.mock('react-native', () => ({
-  Platform: {
-    OS: 'android',
-  },
-  Linking: {
-    openURL: jest.fn(),
-  },
-}));
 
 describe('useDownloadManager', () => {
   const emitEvent = jest.fn();
   const onDownloadComplete = jest.fn();
   const iosStoreId = '123456';
-  const updateState = { available: true, critical: false, trackViewUrl: 'https://store.com' };
+  const updateState = { 
+    available: true, 
+    critical: false, 
+    trackViewUrl: 'https://apps.apple.com/app/id123456' 
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
+    Platform.OS = 'android';
   });
 
   afterEach(() => {
@@ -40,10 +39,10 @@ describe('useDownloadManager', () => {
   it('should trigger mock download in debugMode', async () => {
     const { result } = renderHook(() => useDownloadManager(
       updateState,
-      true, // debugMode
-      iosStoreId,
+      { current: onDownloadComplete },
       emitEvent,
-      onDownloadComplete
+      iosStoreId,
+      true // debugMode
     ));
 
     await act(async () => {
@@ -79,10 +78,10 @@ describe('useDownloadManager', () => {
     Platform.OS = 'android';
     const { result } = renderHook(() => useDownloadManager(
       updateState,
-      false, // debugMode
-      iosStoreId,
+      { current: onDownloadComplete },
       emitEvent,
-      onDownloadComplete
+      iosStoreId,
+      false // debugMode
     ));
 
     await act(async () => {
@@ -106,41 +105,79 @@ describe('useDownloadManager', () => {
     const criticalState = { ...updateState, critical: true };
     const { result } = renderHook(() => useDownloadManager(
       criticalState,
-      false,
-      iosStoreId,
-      emitEvent
+      { current: onDownloadComplete },
+      emitEvent,
+      iosStoreId
     ));
 
     await act(async () => {
       await result.current.startUpdate();
     });
 
-    expect(AppUpdater.startInAppUpdate).toHaveBeenCalledWith(true);
+    expect(AppUpdater.startInAppUpdate).toHaveBeenCalledWith();
   });
 
-  it('should open Store URL on iOS', async () => {
+  it('should use AppUpdater.openStore on iOS when trackViewUrl is provided', async () => {
     Platform.OS = 'ios';
     const { result } = renderHook(() => useDownloadManager(
       updateState,
-      false,
-      iosStoreId,
-      emitEvent
+      { current: onDownloadComplete },
+      emitEvent,
+      iosStoreId
     ));
 
     await act(async () => {
       await result.current.startUpdate();
     });
 
-    expect(Linking.openURL).toHaveBeenCalledWith('https://store.com');
+    // It should extract the ID from the URL and call openStore
+    expect(AppUpdater.openStore).toHaveBeenCalledWith('123456');
+  });
+
+  it('should emit update_failed when both trackViewUrl and iosStoreId are missing on iOS', async () => {
+    Platform.OS = 'ios';
+    const stateWithoutUrl = { ...updateState, trackViewUrl: undefined };
+    const { result } = renderHook(() => useDownloadManager(
+      stateWithoutUrl,
+      { current: onDownloadComplete },
+      emitEvent,
+      undefined // missing iosStoreId
+    ));
+
+    await act(async () => {
+      await result.current.startUpdate();
+    });
+
+    expect(emitEvent).toHaveBeenCalledWith({
+      type: 'update_failed',
+      payload: expect.objectContaining({ error: expect.any(AppUpdaterError) })
+    });
+  });
+
+  it('should call native openStore on iOS as fallback when trackViewUrl is missing', async () => {
+    Platform.OS = 'ios';
+    const stateWithoutUrl = { ...updateState, trackViewUrl: undefined };
+    const { result } = renderHook(() => useDownloadManager(
+      stateWithoutUrl,
+      { current: onDownloadComplete },
+      emitEvent,
+      iosStoreId
+    ));
+
+    await act(async () => {
+      await result.current.startUpdate();
+    });
+
+    expect(AppUpdater.openStore).toHaveBeenCalledWith(iosStoreId);
   });
 
   it('should call completeFlexibleUpdate on Android', async () => {
     Platform.OS = 'android';
     const { result } = renderHook(() => useDownloadManager(
       updateState,
-      false,
-      iosStoreId,
-      emitEvent
+      { current: onDownloadComplete },
+      emitEvent,
+      iosStoreId
     ));
 
     await act(async () => {
@@ -153,9 +190,10 @@ describe('useDownloadManager', () => {
   it('should cleanup intervals on unmount', async () => {
     const { unmount, result } = renderHook(() => useDownloadManager(
       updateState,
-      true, // debugMode
+      { current: onDownloadComplete },
+      emitEvent,
       iosStoreId,
-      emitEvent
+      true // debugMode
     ));
 
     await act(async () => {

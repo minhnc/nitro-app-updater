@@ -24,7 +24,7 @@
   HybridObjectRegistry::registerHybridObjectConstructor(
     "AppUpdater",
     []() -> std::shared_ptr<HybridObject> {
-      std::shared_ptr<HybridAppUpdaterSpec> hybridObject = AppUpdater::AppUpdaterAutolinking::AutolinkedAppUpdater::create();
+      std::shared_ptr<HybridAppUpdaterSpec> hybridObject = AppUpdater::AppUpdaterAutolinking::createAppUpdater();
       return hybridObject;
     }
   );

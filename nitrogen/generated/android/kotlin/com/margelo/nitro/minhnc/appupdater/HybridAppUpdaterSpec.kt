@@ -56,11 +56,11 @@ abstract class HybridAppUpdaterSpec: HybridObject() {
   
   @DoNotStrip
   @Keep
-  abstract fun openStore(storeId: String): Unit
+  abstract fun openStore(storeId: String): Promise<Unit>
   
   @DoNotStrip
   @Keep
-  abstract fun openStoreReviewPage(storeId: String): Unit
+  abstract fun openStoreReviewPage(storeId: String): Promise<Unit>
   
   @DoNotStrip
   @Keep
@@ -68,7 +68,7 @@ abstract class HybridAppUpdaterSpec: HybridObject() {
   
   @DoNotStrip
   @Keep
-  abstract fun startInAppUpdate(immediate: Boolean): Promise<Unit>
+  abstract fun startInAppUpdate(): Promise<Unit>
   
   abstract fun startFlexibleUpdate(onProgress: (bytesDownloaded: Double, totalBytes: Double) -> Unit): Promise<Unit>
   

@@ -18,8 +18,8 @@ namespace margelo::nitro::minhnc::appupdater { struct AppUpdateStatus; }
 namespace margelo::nitro::minhnc::appupdater { struct SmartReviewState; }
 
 #include <string>
-#include "AppUpdateStatus.hpp"
 #include <NitroModules/Promise.hpp>
+#include "AppUpdateStatus.hpp"
 #include <optional>
 #include <functional>
 #include "SmartReviewState.hpp"
@@ -90,17 +90,21 @@ namespace margelo::nitro::minhnc::appupdater {
       auto __value = std::move(__result.value());
       return __value;
     }
-    inline void openStore(const std::string& storeId) override {
+    inline std::shared_ptr<Promise<void>> openStore(const std::string& storeId) override {
       auto __result = _swiftPart.openStore(storeId);
       if (__result.hasError()) [[unlikely]] {
         std::rethrow_exception(__result.error());
       }
+      auto __value = std::move(__result.value());
+      return __value;
     }
-    inline void openStoreReviewPage(const std::string& storeId) override {
+    inline std::shared_ptr<Promise<void>> openStoreReviewPage(const std::string& storeId) override {
       auto __result = _swiftPart.openStoreReviewPage(storeId);
       if (__result.hasError()) [[unlikely]] {
         std::rethrow_exception(__result.error());
       }
+      auto __value = std::move(__result.value());
+      return __value;
     }
     inline std::shared_ptr<Promise<AppUpdateStatus>> checkPlayStoreUpdate(std::optional<bool> debugMode) override {
       auto __result = _swiftPart.checkPlayStoreUpdate(debugMode);
@@ -110,8 +114,8 @@ namespace margelo::nitro::minhnc::appupdater {
       auto __value = std::move(__result.value());
       return __value;
     }
-    inline std::shared_ptr<Promise<void>> startInAppUpdate(bool immediate) override {
-      auto __result = _swiftPart.startInAppUpdate(std::forward<decltype(immediate)>(immediate));
+    inline std::shared_ptr<Promise<void>> startInAppUpdate() override {
+      auto __result = _swiftPart.startInAppUpdate();
       if (__result.hasError()) [[unlikely]] {
         std::rethrow_exception(__result.error());
       }

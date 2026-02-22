@@ -57,10 +57,10 @@ namespace margelo::nitro::minhnc::appupdater {
     // Methods
     std::string getCurrentVersion() override;
     std::string getBundleId() override;
-    void openStore(const std::string& storeId) override;
-    void openStoreReviewPage(const std::string& storeId) override;
+    std::shared_ptr<Promise<void>> openStore(const std::string& storeId) override;
+    std::shared_ptr<Promise<void>> openStoreReviewPage(const std::string& storeId) override;
     std::shared_ptr<Promise<AppUpdateStatus>> checkPlayStoreUpdate(std::optional<bool> debugMode) override;
-    std::shared_ptr<Promise<void>> startInAppUpdate(bool immediate) override;
+    std::shared_ptr<Promise<void>> startInAppUpdate() override;
     std::shared_ptr<Promise<void>> startFlexibleUpdate(const std::function<void(double /* bytesDownloaded */, double /* totalBytes */)>& onProgress) override;
     std::shared_ptr<Promise<void>> completeFlexibleUpdate() override;
     std::shared_ptr<Promise<void>> requestInAppReview() override;

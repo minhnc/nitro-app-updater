@@ -4,46 +4,42 @@ description: How to compile and package the library for use
 
 # Build and Package Workflow
 
-Follow these steps to generate native bindings, compile TypeScript, and create a package item for testing.
+Follow these steps to generate native bindings, compile TypeScript, and create a package for testing.
 
-### 1. Generate Native Bindings (Nitrogen)
+### 1. Unified Build & Pack
 
-This generates the JSI/C++ code required by Nitro Modules from your TypeScript interfaces.
-
-```bash
-bun run generate
-```
-
-### 2. Compile TypeScript
-
-This compiles the source code in `src/` to the `lib/` directory.
+Use the automated script to clean, generate native bindings, compile TypeScript, and package the library into a `.tgz` file in one step:
 
 ```bash
-bun run build
+bun run pack:local
 ```
 
-### 3. Package for Local Testing
+### 2. Testing in the Example App
 
-This creates a `.tgz` file that can be installed in another project.
+To quickly sync your changes to the built-in example app:
 
 ```bash
-npm pack
+bun run example:install
 ```
 
-### 4. Install in a React Native/Expo App
+### 3. Testing in an External App
 
-Go to your target application directory and run:
+If you want to test the library in a different local project:
 
-```bash
-bun add /path/to/minhnc-nitro-app-updater-1.0.0.tgz
-```
+1. **Pack the library** (Step 1 above).
+2. **Install the `.tgz`** in your target app:
+   ```bash
+   bun add /path/to/minhnc-nitro-app-updater-<version>.tgz
+   ```
 
-### 5. Rebuild Native Code
+### 4. Rebuild Native Code
 
-Since this is a Native Module, you must rebuild the native part of your app.
+Since this is a Native Module, you must rebuild the native part of your app after installation:
 
 ```bash
 # For Expo (Managed or Bare)
+bun run example:ios    # or example:android
+# or manually:
 npx expo run:ios
 npx expo run:android
 

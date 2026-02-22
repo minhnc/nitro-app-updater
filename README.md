@@ -41,19 +41,19 @@ graph TD
 
 ## Compatibility
 
-| Platform         | Minimum Version | Notes                                   |
-| ---------------- | --------------- | --------------------------------------- |
-| **iOS**          | 13.4+           | Requires Swift 5.9+ (Xcode 15+)         |
-| **Android**      | 6.0+ (API 23)   | Uses Play Core In-App Updates           |
-| **React Native** | 0.75+           | JSI-based (New Architecture/Bridgeless) |
-| **Expo**         | SDK 51+         | Via Config Plugin                       |
+| Platform         | Minimum Version | Notes                                                                |
+| ---------------- | --------------- | -------------------------------------------------------------------- |
+| **iOS**          | 13.4+           | Requires Swift 5.9+ (Xcode 16.4+)                                    |
+| **Android**      | 6.0+ (API 23)   | Uses Play Core In-App Updates, compileSdkVersion 34+, ndkVersion 27+ |
+| **React Native** | 0.75+           | JSI-based (New Architecture/Bridgeless)                              |
+| **Expo**         | SDK 51+         | Works out of the box (no config plugin required)                     |
 
 ## Installation
 
 ```sh
 bun add @minhnc/nitro-app-updater
 # Install Peer Dependencies
-bun add react-native-nitro-modules
+bun add "react-native-nitro-modules@>=0.33.9"
 cd ios && pod install
 ```
 
@@ -62,27 +62,27 @@ cd ios && pod install
 
 ### Scripts
 
-The package includes standard scripts for development:
+The package includes enhanced scripts for development:
 
-- `npm run typecheck`: Run TypeScript type checking.
-- `npm run lint`: Lint the codebase.
-- `npm run test`: Run unit tests.
-- `npm run generate`: Generate native bindings (Nitrogen).
-- `npm run build`: Compile TypeScript.
+- `bun run check`: Run linting and type checking (ideal for CI).
+- `bun run clean`: Remove build and generation artifacts (`lib`, `nitrogen`).
+- `bun run generate`: Generate native bindings (Nitrogen).
+- `bun run build`: Compile TypeScript.
+- `bun run watch`: Compile TypeScript in watch mode.
+- `bun run test`: Run unit tests.
+- `bun run test:watch`: Run unit tests in watch mode.
+- `bun run pack:local`: Build and package the library as a `.tgz` for local testing.
+- `bun run release`: Verify (lint, typecheck, test) and publish the package to NPM.
 
-### Expo Setup (Managed Workflow)
+#### Example App Shortcuts
 
-If you are using Expo, add the following to your `app.json` or `app.config.js`:
+Run commands for the `/example` app directly from the root:
 
-```json
-{
-  "expo": {
-    "plugins": ["@minhnc/nitro-app-updater"]
-  }
-}
-```
-
-This plugin automatically configures the necessary **C++ Interop Mode** and **C++ Standard Library** settings for you. Remember to rebuild your dev client with `npx expo run:ios` or `npx expo run:android` after adding the plugin.
+- `bun run example:ios`: Build and run on iOS.
+- `bun run example:android`: Build and run on Android.
+- `bun run example:start`: Start the Expo dev server.
+- `bun run example:prebuild`: Run expo prebuild in the example directory.
+- `bun run example:install`: Build the library and install the latest `.tgz` into the example app.
 
 ## Usage
 
@@ -97,13 +97,54 @@ export default function App() {
   return (
     <>
       <YourApp />
-      <UpdatePrompt config={{ checkOnMount: true }} />
+      <UpdatePrompt
+        config={{ iosStoreId: "YOUR_APP_STORE_ID", checkOnMount: true }}
+      />
     </>
   );
 }
 ```
 
-### 2. Custom Hook
+### 2. Provider & Context (Recommended)
+
+To avoid prop-drilling or initializing the updater multiple times, wrap your app in `AppUpdaterProvider` and consume the state anywhere using `useAppUpdaterContext()`.
+
+```tsx
+import {
+  AppUpdaterProvider,
+  useAppUpdaterContext,
+  UpdatePrompt,
+} from "@minhnc/nitro-app-updater";
+
+export default function App() {
+  return (
+    <AppUpdaterProvider config={{ iosStoreId: "YOUR_APP_STORE_ID" }}>
+      <MyScreen />
+    </AppUpdaterProvider>
+  );
+}
+
+function MyScreen() {
+  const updater = useAppUpdaterContext();
+  const { requestReview, canRequestReview } = updater;
+
+  return (
+    <>
+      <Button
+        onPress={requestReview}
+        title="Rate Us"
+        disabled={!canRequestReview}
+      />
+      {/* Pass the shared context state to the drop-in UI component */}
+      <UpdatePrompt externalUpdater={updater} />
+    </>
+  );
+}
+```
+
+### 3. Custom Hook (Advanced Usage)
+
+If you need multiple configurations or don't want to use the global context, you can use the `useAppUpdater` hook directly.
 
 ```tsx
 import { useAppUpdater } from "@minhnc/nitro-app-updater";
@@ -121,7 +162,10 @@ function MyCustomUpdater() {
     canRequestReview,
     lastReviewPromptDate,
     checkUpdate, // returns Promise<UpdateState>
+    resetSmartReview, // Reset win counts & prompt tracking
+    error, // The last error encountered (AppUpdaterError)
   } = useAppUpdater({
+    iosStoreId: "YOUR_APP_STORE_ID",
     onDownloadComplete: () => {
       console.log("Download finished! Ready to install.");
       // Trigger confetti or navigation
@@ -142,7 +186,7 @@ function MyCustomUpdater() {
 }
 ```
 
-### 3. Comprehensive Example
+### 4. Comprehensive Example
 
 This example demonstrates how to use **Debug Mode** to test the UI, listen to **Analytics Events**, and customize the **Theme**.
 
@@ -164,6 +208,7 @@ export default function App() {
     <View style={styles.container}>
       <UpdatePrompt
         config={{
+          iosStoreId: "YOUR_APP_STORE_ID",
           checkOnMount: true,
           debugMode: __DEV__, // Only enable in development
           minRequiredVersion: "1.0.0", // Forced update for users on versions < 1.0.0
@@ -202,24 +247,44 @@ Ensure you have the Play Core library dependencies (handled automatically by thi
 2. Uploading to **Internal Testing** track on Google Play.
 3. Downloading the app from the Play Store (or having an older version installed with the same signature).
 
+> [!WARNING]
+> For Android In-App Updates to resume correctly across app restarts (especially flexible updates), ensure your `MainActivity.kt` properly forwards `onNewIntent` or your app handles Activity recreations. Failing to do so might cause the update promise to hang if the app is killed during a background download.
+
 ## iOS Setup
 
 Uses standard iTunes Lookup API. No extra config needed.
 
 ## Configuration
 
-| Prop                 | Type       | Description                                                                  |
-| -------------------- | ---------- | ---------------------------------------------------------------------------- |
-| `minRequiredVersion` | `string`   | Minimum version users must be running to skip a forced update (e.g. "1.5.0") |
-| `iosCountryCode`     | `string`   | Country code for iOS App Store lookup (default: "us")                        |
-| `checkOnMount`       | `boolean`  | Whether to check for updates on mount (default: true)                        |
-| `debugMode`          | `boolean`  | Mock update availability for testing (default: false)                        |
-| `reviewCooldownDays` | `number`   | Days between in-app review prompts (default: 120)                            |
-| `iosStoreId`         | `string`   | iOS App Store numeric ID for fallback URL                                    |
-| `minOsVersion`       | `string`   | Minimum OS version required (iOS version or Android API)                     |
-| `onDownloadComplete` | `function` | Callback when flexible update finishes (Android only)                        |
-| `onEvent`            | `function` | Unified event callback for analytics/logging                                 |
-| `enabled`            | `boolean`  | Whether the updater is enabled (default: true)                               |
+| Prop                  | Type       | Description                                                                                             |
+| --------------------- | ---------- | ------------------------------------------------------------------------------------------------------- |
+| `minRequiredVersion`  | `string`   | Minimum version users must be running to skip a forced update (e.g. "1.5.0")                            |
+| `iosCountryCode`      | `string`   | Two-letter country code for App Store lookup (default: "us"). **Must change if app isn't in US store.** |
+| `checkOnMount`        | `boolean`  | Whether to check for updates on mount (default: true)                                                   |
+| `debugMode`           | `boolean`  | Mock update availability for testing (default: false)                                                   |
+| `reviewCooldownDays`  | `number`   | Days between in-app review prompts (default: 120)                                                       |
+| `iosStoreId`          | `string`   | **Required.** iOS App Store numeric ID for deep linking and fallback URL.                               |
+| `iosLookupTimeoutMs`  | `number`   | Timeout for iOS App Store lookup in milliseconds (default: 10000)                                       |
+| `minOsVersion`        | `string`   | **Deprecated.** Handled automatically by Store APIs. No longer required.                                |
+| `onDownloadComplete`  | `function` | Callback when flexible update finishes (Android only)                                                   |
+| `onEvent`             | `function` | Unified event callback for analytics/logging                                                            |
+| `enabled`             | `boolean`  | Whether the entire updater is enabled (default: true). If `false`, neither updates nor reviews occur.   |
+| `refreshOnForeground` | `boolean`  | Auto-check for updates when app returns to foreground (default: true)                                   |
+
+### Smart Review Configuration (`smartReview` prop)
+
+Pass these properties inside the `smartReview` object in your config:
+
+> [!NOTE]
+> Setting the global `enabled: false` completely deactivates the hook. If you want to keep update checks running but disable the Happiness Gate, leave the global `enabled` true and set `smartReview: { enabled: false }`.
+
+| Property             | Type       | Description                                     |
+| -------------------- | ---------- | ----------------------------------------------- |
+| `enabled`            | `boolean`  | Enable the Smart Review Happiness Gate feature  |
+| `winsBeforePrompt`   | `number`   | Positive actions before prompting (default: 3)  |
+| `cooldownDays`       | `number`   | Days to wait before re-prompting (default: 120) |
+| `maxPrompts`         | `number`   | Maximum times to show prompt (default: 1)       |
+| `onNegativeFeedback` | `function` | Callback when user selects "Not really"         |
 
 ## Analytics & Callbacks
 
@@ -239,11 +304,25 @@ const { startUpdate } = useAppUpdater({
 // Event types:
 // - update_available: { version: string }
 // - update_accepted
-// - update_dismissed: { error?: AppUpdaterError }
+// - update_dismissed: { error?: AppUpdaterError } // Fires on user dismiss OR unhandled errors
 // - update_downloaded
 // - review_requested
 // - review_completed
 ```
+
+> [!TIP]
+> **Handle Failures Elegantly**: Always check for `event.payload.error` in the `update_dismissed` event. You can check the error code using the `AppUpdaterErrorCode` enum:
+>
+> ```tsx
+> import { AppUpdaterErrorCode } from "@minhnc/nitro-app-updater";
+>
+> if (
+>   event.type === "update_dismissed" &&
+>   event.payload.error?.code === AppUpdaterErrorCode.NETWORK_ERROR
+> ) {
+>   // show retry toast
+> }
+> ```
 
 ### Manual Review Button (Recommended)
 
@@ -263,6 +342,25 @@ function SettingsScreen() {
 }
 ```
 
+### Clearing the Update Cache
+
+If you need to force a fresh update check (e.g., after a user changes their regional settings or account), call:
+
+```tsx
+import { clearUpdateCache } from "@minhnc/nitro-app-updater";
+
+clearUpdateCache();
+```
+
+> [!TIP]
+> **Real-time freshness**: The update check results are cached for 5 minutes. The hook automatically handles clearing this cache when the app returns from the background (via `refreshOnForeground: true`). If you set this to `false`, you can manually manage it:
+>
+> ```tsx
+> AppState.addEventListener("change", (state) => {
+>   if (state === "active") clearUpdateCache();
+> });
+> ```
+
 ### Smart Review Triggers (Happiness Gate)
 
 The Smart Review feature implements the ["Happiness Gate" pattern](https://medium.com/circa/the-right-way-to-ask-users-to-review-your-app-9a32fd604fca) to maximize positive reviews while diverting constructive feedback internally.
@@ -272,6 +370,7 @@ import { useAppUpdater, UpdatePrompt } from "@minhnc/nitro-app-updater";
 
 function App() {
   const { recordWin } = useAppUpdater({
+    iosStoreId: "YOUR_APP_STORE_ID",
     smartReview: {
       enabled: true,
       winsBeforePrompt: 3, // Number of positive actions before prompting
@@ -365,6 +464,7 @@ To trigger the gate repeatedly in your simulator/emulator, use this configuratio
 
 ```tsx
 const updater = useAppUpdater({
+  iosStoreId: "YOUR_APP_STORE_ID",
   debugMode: true, // Bypasses prompt limits & enables fallbacks
   reviewCooldownDays: 0, // Allows the native prompt/redirect every time
   smartReview: {
@@ -375,48 +475,68 @@ const updater = useAppUpdater({
 });
 ```
 
+#### 3. Manual Reset (The Power User Way)
+
+If you've hit your prompt limits and want to test the flow from scratch without clearing app data, you can call the new `resetSmartReview` helper:
+
+```tsx
+const { resetSmartReview, recordWin } = useAppUpdater({
+  iosStoreId: "YOUR_APP_STORE_ID",
+});
+
+// Attach this to a hidden debug button
+<Button title="Reset for Testing" onPress={() => resetSmartReview()} />;
+```
+
+## Advanced Usage
+
+### Using External Hook State
+
+In complex apps where you might want to control the updater logic from a central store or a parent component, you can pass an `externalUpdater` instance to the `UpdatePrompt`.
+
+This prevents the prompt from creating its own internal hook instance, allowing you to share the same updater state across multiple screens or components.
+
+```tsx
+import { useAppUpdater, UpdatePrompt } from "@minhnc/nitro-app-updater";
+
+function Layout() {
+  const updater = useAppUpdater({
+    iosStoreId: "YOUR_APP_STORE_ID",
+    checkOnMount: true,
+  });
+
+  return (
+    <View style={{ flex: 1 }}>
+      <YourApp />
+      {/* Pass the updater result directly */}
+      <UpdatePrompt externalUpdater={updater} />
+    </View>
+  );
+}
+```
+
+> [!IMPORTANT]
+> When using `externalUpdater`, the `config` prop on `UpdatePrompt` is ignored in favor of the configuration provided to your `useAppUpdater` call.
+
 ---
 
 ## Local Development
 
-To test this package locally in an **Expo** or **React Native** project:
+To test changes locally using the built-in **example app**:
 
-1.  **Generate Native Bindings**:
-
-    ```bash
-    npm run generate
-    ```
-
-2.  **Compile TypeScript**:
+1.  **Sync Changes**:
+    Build the library and link it to the example app in one command:
 
     ```bash
-    npm run build
+    bun run example:install
     ```
 
-3.  **Pack the library**:
-
+2.  **Run Natively**:
     ```bash
-    bun pm pack
-    # Generates a file like minhnc-nitro-app-updater-<version>.tgz
+    bun run example:ios    # or bun run example:android
     ```
 
-4.  **Install in your app**:
-
-    ```bash
-    cd /path/to/your/app
-    bun add /path/to/minhnc-nitro-app-updater-1.0.0.tgz
-    ```
-
-5.  **Rebuild Dev Client**:
-    Since this package contains native code (Nitro Modules), **Expo Go will not work**. You must rebuild your Development Client:
-
-    ```bash
-    # iOS
-    npx expo run:ios
-
-    # Android
-    npx expo run:android
-    ```
+For a detailed walkthrough of the developer workflow and how to contribute, see [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## Example App
 
@@ -461,19 +581,21 @@ bun run ios    # or bun run android
 
 The `AppUpdaterError` class includes the following codes:
 
-| Code             | Description                                            |
-| ---------------- | ------------------------------------------------------ |
-| `NOT_SUPPORTED`  | Feature not supported on this platform/version.        |
-| `NETWORK_ERROR`  | Failed to reach store APIs (iTunes/Play Store).        |
-| `STORE_ERROR`    | The store returned an error during the process.        |
-| `USER_CANCELLED` | The user dismissed or cancelled the update.            |
-| `NO_ACTIVITY`    | (Android) No foreground activity found to host the UI. |
-| `UNKNOWN`        | An unexpected error occurred.                          |
+| Code             | Description                                                                                                   |
+| ---------------- | ------------------------------------------------------------------------------------------------------------- |
+| `NOT_SUPPORTED`  | Feature not supported on this platform/version.                                                               |
+| `NETWORK_ERROR`  | Failed to reach store APIs (iTunes/Play Store).                                                               |
+| `STORE_ERROR`    | The store returned an error during the process.                                                               |
+| `USER_CANCELLED` | The user dismissed or cancelled the update.                                                                   |
+| `NO_ACTIVITY`    | (Android) No foreground activity found to host the UI.                                                        |
+| `APP_NOT_OWNED`  | (Android) App not installed from Google Play (e.g. side-loaded). Handled gracefully as "no update available". |
+| `UNKNOWN`        | An unexpected error occurred.                                                                                 |
 
 ### Troubleshooting
 
 - **Android Play Core**: In-App Updates and Reviews require a signed build. They will **not** work in standard debug builds unless using the Internal App Sharing track or a signed APK/AAB uploaded to a testing track.
 - **iOS Store IDs**: Manual review links require a numeric `iosStoreId`. If you see "Invalid Store URL" warnings in logs, ensure you've provided the numeric ID from App Store Connect.
+- **C++ Standard conflicts**: If you encounter "invalid value for -std=c++20" or duplicate standard flag errors during build, ensure your project doesn't have conflicting `-std` flags in other native targets. The Nitro framework requires C++20.
 - **Quota Limits**: Both iOS and Android enforce strict quotas on native review prompts. If a prompt doesn't show, it's likely being suppressed by the OS. The library automatically falls back to opening the store page in these cases when triggered manually.
 
 ## Contributing

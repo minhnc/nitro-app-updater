@@ -4,11 +4,12 @@ export enum AppUpdaterErrorCode {
   STORE_ERROR = 'STORE_ERROR',
   USER_CANCELLED = 'USER_CANCELLED',
   NO_ACTIVITY = 'NO_ACTIVITY',
+  APP_NOT_OWNED = 'APP_NOT_OWNED',
   UNKNOWN = 'UNKNOWN',
 }
 
 export class AppUpdaterError extends Error {
-  code: AppUpdaterErrorCode;
+  readonly code: AppUpdaterErrorCode;
 
   constructor(code: AppUpdaterErrorCode, message: string) {
     super(message);
@@ -26,9 +27,8 @@ export class AppUpdaterError extends Error {
    */
   static fromNative(error: unknown): AppUpdaterError {
     const message = error instanceof Error ? error.message : String(error);
-    const parts = message.split(': ');
-    
-    if (parts.length >= 2) {
+    if (message.includes(': ')) {
+      const parts = message.split(': ');
       const potentialCode = parts[0] as AppUpdaterErrorCode;
       if (Object.values(AppUpdaterErrorCode).includes(potentialCode)) {
         return new AppUpdaterError(potentialCode, parts.slice(1).join(': '));

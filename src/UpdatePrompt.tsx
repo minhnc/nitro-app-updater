@@ -1,7 +1,7 @@
 import React from 'react'
-import { Modal, View, Text, StyleSheet, TouchableOpacity, ScrollView, Animated } from 'react-native'
-import { useAppUpdater, type AppUpdaterEvent } from './useAppUpdater'
-import { AppUpdaterError, AppUpdaterErrorCode } from './AppUpdaterError'
+import { Modal, View, Text, StyleSheet, TouchableOpacity, ScrollView, Animated, SafeAreaView } from 'react-native'
+import { useAppUpdater } from './useAppUpdater'
+import type { AppUpdaterEvent } from './types'
 import { HappinessGate } from './HappinessGate'
 
 const MIN_PROGRESS_WIDTH = 5
@@ -12,6 +12,7 @@ export interface UpdatePromptTheme {
   text?: string
   subtext?: string
   overlay?: string
+  error?: string
 }
 
 export interface UpdatePromptProps {
@@ -57,33 +58,53 @@ export interface UpdatePromptProps {
    * If provided, the prompt will use this state instead of creating its own.
    */
   externalUpdater?: ReturnType<typeof useAppUpdater>
+
+  // Localization / Text Overrides
+  downloadingText?: string
+  installText?: string
+  whatsNewLabel?: string
+  errorTitle?: string
+  errorRetryText?: string
 }
 
-export const UpdatePrompt = React.memo(function UpdatePrompt({ 
-  config, 
+export const UpdatePrompt = React.memo(function UpdatePrompt(props: UpdatePromptProps) {
+  if (props.externalUpdater) {
+    return <UpdatePromptView updater={props.externalUpdater} {...props} />
+  }
+  return <InternalUpdatePrompt {...props} />
+})
+
+const InternalUpdatePrompt = React.memo(function InternalUpdatePrompt(
+  props: Omit<UpdatePromptProps, 'externalUpdater'>
+) {
+  const mergedConfig = {
+    iosStoreId: '' as const,
+    ...props.config,
+    onEvent: props.onEvent || props.config?.onEvent
+  }
+  const updater = useAppUpdater(mergedConfig)
+  
+  return <UpdatePromptView updater={updater} {...props} />
+})
+
+type UpdatePromptViewProps = Omit<UpdatePromptProps, 'externalUpdater'> & {
+  updater: ReturnType<typeof useAppUpdater>
+}
+
+const UpdatePromptView = React.memo(function UpdatePromptView({ 
+  updater,
   title = "Update Available", 
   message = "A new version is available! Upgrade now for the latest features and fixes.",
   confirmText = "Update Now",
   cancelText = "Later",
   theme,
   happinessGate,
-  onEvent,
-  externalUpdater
-}: UpdatePromptProps) {
-  // Optimization: Do not call the internal hook if an external one is already provided
-  // We use a dummy state to satisfy hook rules if external is provided, but since useAppUpdater 
-  // is a custom hook we should be careful. Actually, it's better to just ensure useAppUpdater 
-  // is fast or refactor so the logic can be shared. 
-  // Given standard React rules, we MUST call the hook if it's there, but we can make it do nothing.
-  const internalUpdater = useAppUpdater({
-    ...config,
-    onEvent,
-    enabled: !externalUpdater,
-    checkOnMount: externalUpdater ? false : config?.checkOnMount
-  })
-
-  const updater = externalUpdater || internalUpdater
-  
+  downloadingText = "Downloading update...",
+  installText = "Install & Restart",
+  whatsNewLabel = "What's New:",
+  errorTitle = "Update Failed",
+  errorRetryText = "Try Again"
+}: UpdatePromptViewProps) {
   const { 
     available, 
     critical, 
@@ -98,17 +119,33 @@ export const UpdatePrompt = React.memo(function UpdatePrompt({
     handleHappinessPositive,
     handleHappinessNegative,
     handleHappinessDismiss,
+    error: updaterError,
+    checkUpdate,
   } = updater
+  
   const [dismissed, setDismissed] = React.useState(false)
   const fadeAnim = React.useRef(new Animated.Value(0)).current // Initial value for opacity: 0
   const scaleAnim = React.useRef(new Animated.Value(0.95)).current // Initial scale
+  const [retryFlash, setRetryFlash] = React.useState(false)
+  const retryTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const isMountedRef = React.useRef(true)
+  // Cleanup timeout on unmount
+  React.useEffect(() => {
+    isMountedRef.current = true
+    return () => {
+      isMountedRef.current = false
+      if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current)
+    }
+  }, [])
 
   const colors = {
     primary: theme?.primary || '#007AFF',
     background: theme?.background || 'rgba(255, 255, 255, 0.95)',
     text: theme?.text || '#000000',
     subtext: theme?.subtext || '#666666',
-    overlay: theme?.overlay || 'rgba(0, 0, 0, 0.5)'
+    overlay: theme?.overlay || 'rgba(0, 0, 0, 0.5)',
+    error: theme?.error || '#FF3B30'
   }
 
   const handleDismiss = () => {
@@ -117,16 +154,29 @@ export const UpdatePrompt = React.memo(function UpdatePrompt({
       duration: 200,
       useNativeDriver: true,
     }).start(() => {
+        if (!isMountedRef.current) return
         setDismissed(true)
-        onEvent?.({
-          type: 'update_dismissed',
-          payload: { error: new AppUpdaterError(AppUpdaterErrorCode.USER_CANCELLED, "User dismissed the update prompt") }
-        })
+        updater.emitEvent({ type: 'update_dismissed', payload: {} })
     })
   }
 
+  const handleRetry = () => {
+    setRetryFlash(true)
+    if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current)
+    retryTimeoutRef.current = setTimeout(() => setRetryFlash(false), 500)
+    if (!available) {
+      checkUpdate(true).catch(() => {})
+    } else {
+      startUpdate().catch(() => {})
+    }
+  }
+
+  const prevVersionRef = React.useRef(updater.version)
+
   React.useEffect(() => {
     if (available && !dismissed) {
+      fadeAnim.setValue(0)
+      scaleAnim.setValue(0.95)
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
@@ -140,111 +190,170 @@ export const UpdatePrompt = React.memo(function UpdatePrompt({
           useNativeDriver: true,
         })
       ]).start()
+      prevVersionRef.current = updater.version
     }
-  }, [available, dismissed, fadeAnim, scaleAnim])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [available, dismissed, updater.version])
+
+  // Reset prompt visibility if a NEW update version is found after a previous dismissal
+  React.useEffect(() => {
+    if (available && dismissed && updater.version !== prevVersionRef.current) {
+        setDismissed(false)
+        prevVersionRef.current = updater.version
+    }
+  }, [available, dismissed, updater.version])
 
   const showUpdateModal = available && !dismissed
 
   return (
     <>
-      <HappinessGate
-        visible={showHappinessGate}
-        title={happinessGate?.title}
-        positiveText={happinessGate?.positiveText}
-        negativeText={happinessGate?.negativeText}
-        dismissText={happinessGate?.dismissText}
-        onPositive={handleHappinessPositive}
-        onNegative={handleHappinessNegative}
-        onDismiss={handleHappinessDismiss}
-        theme={theme}
-      />
+      {showHappinessGate && (
+        <HappinessGate
+          visible={showHappinessGate}
+          title={happinessGate?.title}
+          positiveText={happinessGate?.positiveText}
+          negativeText={happinessGate?.negativeText}
+          dismissText={happinessGate?.dismissText}
+          onPositive={handleHappinessPositive}
+          onNegative={handleHappinessNegative}
+          onDismiss={handleHappinessDismiss}
+          theme={theme}
+        />
+      )}
 
-      <Modal transparent animationType="none" visible={showUpdateModal}>
-        <Animated.View style={[styles.container, { backgroundColor: colors.overlay, opacity: fadeAnim }]}>
-          <Animated.View 
-            style={[
-              styles.card, 
-              { 
-                backgroundColor: colors.background,
-                transform: [{ scale: scaleAnim }]
-              }
-            ]}
-            accessible={true}
-            accessibilityRole="alert"
-            accessibilityLabel={`${title}. ${message}`}
-          >
-            <View style={styles.header}>
-              <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
-            </View>
-            
-            <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
-              <Text style={[styles.message, { color: colors.subtext }]}>{message}</Text>
+      {showUpdateModal && (
+        <Modal transparent animationType="none" visible={showUpdateModal}>
+          <Animated.View style={[styles.container, { backgroundColor: colors.overlay, opacity: fadeAnim }]}>
+            <Animated.View 
+              style={[
+                styles.card, 
+                { 
+                  backgroundColor: colors.background,
+                  transform: [{ scale: scaleAnim }]
+                }
+              ]}
+              accessible={true}
+              accessibilityRole="alert"
+              accessibilityLabel={`${title}. ${message}`}
+            >
+              <View style={styles.header}>
+                <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
+              </View>
               
-              {releaseNotes ? (
-                <View style={styles.notesContainer}>
-                  <Text style={[styles.notesTitle, { color: colors.text }]}>What's New:</Text>
-                  <Text style={[styles.notesText, { color: colors.subtext }]}>{releaseNotes}</Text>
-                </View>
-              ) : null}
-            </ScrollView>
-
-            <View style={styles.footer}>
-              {isDownloading ? (
-                <View 
-                  style={styles.progressContainer}
-                  accessibilityLiveRegion="polite"
-                  accessibilityLabel={`Downloading update: ${Math.round(downloadProgress.percent)}%`}
-                >
-                  <Text style={[styles.downloadingText, { color: colors.text }]}>Downloading update...</Text>
-                  <View style={styles.progressBarBg}>
-                    <View style={[styles.progressBarFill, { width: `${Math.max(MIN_PROGRESS_WIDTH, downloadProgress.percent)}%`, backgroundColor: colors.primary }]} />
+              <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
+                <Text style={[styles.message, { color: colors.subtext }]}>{message}</Text>
+                
+                {releaseNotes ? (
+                  <View style={styles.notesContainer}>
+                    <Text style={[styles.notesTitle, { color: colors.text }]}>{whatsNewLabel}</Text>
+                    <Text style={[styles.notesText, { color: colors.subtext }]}>{releaseNotes}</Text>
                   </View>
-                  <Text style={[styles.progressText, { color: colors.subtext }]}>{Math.round(downloadProgress.percent)}%</Text>
-                </View>
-              ) : isReadyToInstall ? (
-                <TouchableOpacity 
-                  style={[styles.button, styles.installButton, { backgroundColor: colors.primary }]}
-                  onPress={completeUpdate}
-                  activeOpacity={0.8}
-                  accessibilityRole="button"
-                  accessibilityLabel="Install and restart application"
-                  accessibilityHint="Installs the downloaded update and restarts the app immediately."
-                >
-                  <Text style={styles.primaryButtonText}>Install & Restart</Text>
-                </TouchableOpacity>
-              ) : (
-                <>
+                ) : null}
+              </ScrollView>
+
+              <SafeAreaView style={styles.footer}>
+                {isDownloading ? (
+                  <View 
+                    style={styles.progressContainer}
+                    accessibilityLiveRegion="polite"
+                    accessibilityLabel={`${downloadingText} ${Math.round(downloadProgress.percent)}%`}
+                  >
+                    <Text style={[styles.downloadingText, { color: colors.text }]}>{downloadingText}</Text>
+                    <View style={styles.progressBarBg}>
+                      <View style={[styles.progressBarFill, { width: `${Math.max(MIN_PROGRESS_WIDTH, downloadProgress.percent)}%`, backgroundColor: colors.primary }]} />
+                    </View>
+                    <Text style={[styles.progressText, { color: colors.subtext }]}>{Math.round(downloadProgress.percent)}%</Text>
+                  </View>
+                ) : updaterError ? (
+                  <View style={[styles.errorContainer, { borderColor: `rgba(${hexToRgb(colors.error)}, 0.1)`, backgroundColor: `rgba(${hexToRgb(colors.error)}, 0.05)` }, retryFlash && { backgroundColor: `rgba(${hexToRgb(colors.error)}, 0.15)` }]}>
+                    <Text style={[styles.errorTitle, { color: colors.error }]}>{errorTitle}</Text>
+                    <Text style={[styles.errorMessage, { color: colors.subtext }]}>
+                      {updaterError.message || 'An unexpected error occurred.'}
+                    </Text>
+                    <TouchableOpacity 
+                      style={[styles.button, styles.primaryButton, styles.errorRetryButton, { backgroundColor: colors.primary }]}
+                      onPress={handleRetry}
+                      testID="update-prompt-retry-button"
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.primaryButtonText}>{errorRetryText}</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : isReadyToInstall ? (
                   <TouchableOpacity 
-                    style={[styles.button, styles.primaryButton, { backgroundColor: colors.primary }]}
-                    onPress={startUpdate}
+                    testID="update-prompt-install-button"
+                    style={[styles.button, styles.installButton, { backgroundColor: colors.primary }]}
+                    onPress={completeUpdate}
                     activeOpacity={0.8}
                     accessibilityRole="button"
-                    accessibilityLabel={confirmText}
-                    accessibilityHint="Downloads and installs the new version from the store."
+                    accessibilityLabel={installText}
+                    accessibilityHint="Installs the downloaded update and restarts the app immediately."
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
-                    <Text style={styles.primaryButtonText}>{confirmText}</Text>
+                    <Text style={styles.primaryButtonText}>{installText}</Text>
                   </TouchableOpacity>
-                  
-                  {!critical && (
+                ) : (
+                  <>
                     <TouchableOpacity 
-                      style={[styles.button, styles.secondaryButton]}
-                      onPress={handleDismiss}
+                      testID="update-prompt-confirm-button"
+                      style={[styles.button, styles.primaryButton, { backgroundColor: colors.primary }]}
+                      onPress={startUpdate}
+                      activeOpacity={0.8}
                       accessibilityRole="button"
-                      accessibilityLabel={cancelText}
-                      accessibilityHint="Dismisses the update prompt for now."
+                      accessibilityLabel={confirmText}
+                      accessibilityHint="Downloads and installs the new version from the store."
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
-                      <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>{cancelText}</Text>
+                      <Text style={styles.primaryButtonText}>{confirmText}</Text>
                     </TouchableOpacity>
-                  )}
-                </>
-              )}
-            </View>
+                    
+                    {!critical && (
+                      <TouchableOpacity 
+                        style={[styles.button, styles.secondaryButton]}
+                        onPress={handleDismiss}
+                        testID="update-prompt-cancel-button"
+                        accessibilityRole="button"
+                        accessibilityLabel={cancelText}
+                        accessibilityHint="Dismisses the update prompt for now."
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      >
+                        <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>{cancelText}</Text>
+                      </TouchableOpacity>
+                    )}
+                  </>
+                )}
+              </SafeAreaView>
+            </Animated.View>
           </Animated.View>
-        </Animated.View>
-      </Modal>
+        </Modal>
+      )}
     </>
   )
 })
+
+/**
+ * Helper to convert hex to RGB for alpha extraction.
+ * Supports 3 and 6 digit hex strings with or without #.
+ * Returns "255, 59, 48" (default error red) for invalid input.
+ */
+function hexToRgb(hex: string): string {
+  // Validate hex format
+  const hexRegex = /^#?([A-Fa-f0-9]{3}){1,2}$/
+  if (!hexRegex.test(hex)) {
+    return '255, 59, 48' // Default fallback red
+  }
+
+  let cleanHex = hex.replace('#', '')
+  if (cleanHex.length === 3) {
+    cleanHex = cleanHex.split('').map(char => char + char).join('')
+  }
+  
+  const r = parseInt(cleanHex.substring(0, 2), 16)
+  const g = parseInt(cleanHex.substring(2, 4), 16)
+  const b = parseInt(cleanHex.substring(4, 6), 16)
+  
+  return `${r}, ${g}, ${b}`
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -313,8 +422,9 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   footer: {
-    padding: 24,
+    paddingHorizontal: 24,
     paddingTop: 12,
+    paddingBottom: 24,
     gap: 12,
   },
   button: {
@@ -345,6 +455,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     shadowOpacity: 0,
     elevation: 0,
+    height: 48,
   },
   secondaryButtonText: {
     fontSize: 16,
@@ -375,4 +486,24 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     textAlign: 'center',
   },
+  errorContainer: {
+    padding: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  errorTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  errorRetryButton: {
+    marginTop: 12,
+  },
+  errorMessage: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 8,
+    lineHeight: 20,
+  }
 });

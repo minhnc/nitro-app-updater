@@ -13,12 +13,12 @@ namespace margelo::nitro::minhnc::appupdater { struct AppUpdateStatus; }
 namespace margelo::nitro::minhnc::appupdater { struct SmartReviewState; }
 
 #include <string>
-#include "AppUpdateStatus.hpp"
 #include <NitroModules/Promise.hpp>
 #include <NitroModules/JPromise.hpp>
+#include <NitroModules/JUnit.hpp>
+#include "AppUpdateStatus.hpp"
 #include "JAppUpdateStatus.hpp"
 #include <optional>
-#include <NitroModules/JUnit.hpp>
 #include "SmartReviewState.hpp"
 #include "JSmartReviewState.hpp"
 #include <functional>
@@ -74,13 +74,35 @@ namespace margelo::nitro::minhnc::appupdater {
     auto __result = method(_javaPart);
     return __result->toStdString();
   }
-  void JHybridAppUpdaterSpec::openStore(const std::string& storeId) {
-    static const auto method = javaClassStatic()->getMethod<void(jni::alias_ref<jni::JString> /* storeId */)>("openStore");
-    method(_javaPart, jni::make_jstring(storeId));
+  std::shared_ptr<Promise<void>> JHybridAppUpdaterSpec::openStore(const std::string& storeId) {
+    static const auto method = javaClassStatic()->getMethod<jni::local_ref<JPromise::javaobject>(jni::alias_ref<jni::JString> /* storeId */)>("openStore");
+    auto __result = method(_javaPart, jni::make_jstring(storeId));
+    return [&]() {
+      auto __promise = Promise<void>::create();
+      __result->cthis()->addOnResolvedListener([=](const jni::alias_ref<jni::JObject>& /* unit */) {
+        __promise->resolve();
+      });
+      __result->cthis()->addOnRejectedListener([=](const jni::alias_ref<jni::JThrowable>& __throwable) {
+        jni::JniException __jniError(__throwable);
+        __promise->reject(std::make_exception_ptr(__jniError));
+      });
+      return __promise;
+    }();
   }
-  void JHybridAppUpdaterSpec::openStoreReviewPage(const std::string& storeId) {
-    static const auto method = javaClassStatic()->getMethod<void(jni::alias_ref<jni::JString> /* storeId */)>("openStoreReviewPage");
-    method(_javaPart, jni::make_jstring(storeId));
+  std::shared_ptr<Promise<void>> JHybridAppUpdaterSpec::openStoreReviewPage(const std::string& storeId) {
+    static const auto method = javaClassStatic()->getMethod<jni::local_ref<JPromise::javaobject>(jni::alias_ref<jni::JString> /* storeId */)>("openStoreReviewPage");
+    auto __result = method(_javaPart, jni::make_jstring(storeId));
+    return [&]() {
+      auto __promise = Promise<void>::create();
+      __result->cthis()->addOnResolvedListener([=](const jni::alias_ref<jni::JObject>& /* unit */) {
+        __promise->resolve();
+      });
+      __result->cthis()->addOnRejectedListener([=](const jni::alias_ref<jni::JThrowable>& __throwable) {
+        jni::JniException __jniError(__throwable);
+        __promise->reject(std::make_exception_ptr(__jniError));
+      });
+      return __promise;
+    }();
   }
   std::shared_ptr<Promise<AppUpdateStatus>> JHybridAppUpdaterSpec::checkPlayStoreUpdate(std::optional<bool> debugMode) {
     static const auto method = javaClassStatic()->getMethod<jni::local_ref<JPromise::javaobject>(jni::alias_ref<jni::JBoolean> /* debugMode */)>("checkPlayStoreUpdate");
@@ -98,9 +120,9 @@ namespace margelo::nitro::minhnc::appupdater {
       return __promise;
     }();
   }
-  std::shared_ptr<Promise<void>> JHybridAppUpdaterSpec::startInAppUpdate(bool immediate) {
-    static const auto method = javaClassStatic()->getMethod<jni::local_ref<JPromise::javaobject>(jboolean /* immediate */)>("startInAppUpdate");
-    auto __result = method(_javaPart, immediate);
+  std::shared_ptr<Promise<void>> JHybridAppUpdaterSpec::startInAppUpdate() {
+    static const auto method = javaClassStatic()->getMethod<jni::local_ref<JPromise::javaobject>()>("startInAppUpdate");
+    auto __result = method(_javaPart);
     return [&]() {
       auto __promise = Promise<void>::create();
       __result->cthis()->addOnResolvedListener([=](const jni::alias_ref<jni::JObject>& /* unit */) {

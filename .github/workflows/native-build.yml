@@ -1,0 +1,82 @@
+name: Native Compilation Check
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "android/**"
+      - "ios/**"
+      - "src/**"
+      - "package.json"
+  pull_request:
+    paths:
+      - "android/**"
+      - "ios/**"
+      - "src/**"
+      - "package.json"
+
+jobs:
+  build-android:
+    name: Build Android Example
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: "zulu"
+          java-version: "17"
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Install example dependencies
+        working-directory: example
+        run: bun install
+
+      - name: Check TypeScript & ESLint
+        run: bun run check
+
+      - name: Build Android App
+        run: bun run example:build:android
+
+  build-ios:
+    name: Build iOS Example
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      
+      - name: Cache CocoaPods
+        uses: actions/cache@v4
+        with:
+          path: example/ios/Pods
+          key: ${{ runner.os }}-pods-${{ hashFiles('example/ios/Podfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pods-
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Install example dependencies
+        working-directory: example
+        run: bun install
+
+      - name: Build iOS App
+        run: bun run example:build:ios
+

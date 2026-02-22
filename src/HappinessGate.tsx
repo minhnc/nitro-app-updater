@@ -1,67 +1,54 @@
-import React, { useRef, useEffect } from 'react'
-import { Modal, View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
+import {
+  StyleSheet,
+  View,
+  Text,
+  TouchableOpacity,
+  Modal,
+  Animated,
+  Platform,
+  TouchableWithoutFeedback,
+} from 'react-native'
+
+export interface HappinessGateTheme {
+  primary?: string
+  background?: string
+  text?: string
+  overlay?: string
+}
 
 export interface HappinessGateProps {
-  /**
-   * Whether the gate is visible.
-   */
   visible: boolean
-  /**
-   * Custom title text (default: "Enjoying the app?")
-   */
   title?: string
-  /**
-   * Positive button text (default: "Yes! 😊")
-   */
   positiveText?: string
-  /**
-   * Negative button text (default: "Not really")
-   */
   negativeText?: string
-  /**
-   * Secondary button text (default: "Maybe Later")
-   */
   dismissText?: string
-  /**
-   * Custom theme colors
-   */
-  theme?: {
-    primary?: string
-    background?: string
-    text?: string
-    subtext?: string
-    overlay?: string
-  }
-  /**
-   * Callback when user taps the positive button.
-   */
+  theme?: HappinessGateTheme
   onPositive: () => void
-  /**
-   * Callback when user taps the negative button.
-   */
   onNegative: () => void
-  /**
-   * Callback when user dismisses the gate.
-   */
   onDismiss: () => void
 }
 
 export const HappinessGate = React.memo(function HappinessGate({
   visible,
-  title = "Enjoying the app? 🎉",
-  positiveText = "Yes! 😊",
-  negativeText = "Not really 😕",
-  dismissText = "Maybe Later",
+  title = 'Are you enjoying the app?',
+  positiveText = 'Yes, I love it!',
+  negativeText = 'Not really',
+  dismissText = 'Maybe later',
   theme,
   onPositive,
   onNegative,
   onDismiss,
 }: HappinessGateProps) {
+  const [isClosing, setIsClosing] = useState(false)
   const fadeAnim = useRef(new Animated.Value(0)).current
   const scaleAnim = useRef(new Animated.Value(0.95)).current
 
   useEffect(() => {
     if (visible) {
+      setIsClosing(false)
+      fadeAnim.setValue(0)
+      scaleAnim.setValue(0.95)
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
@@ -73,172 +60,169 @@ export const HappinessGate = React.memo(function HappinessGate({
           friction: 8,
           tension: 40,
           useNativeDriver: true,
-        })
+        }),
       ]).start()
-    } else {
-      fadeAnim.setValue(0)
-      scaleAnim.setValue(0.95)
     }
   }, [visible, fadeAnim, scaleAnim])
 
-  if (!visible) return null
-
   const colors = {
     primary: theme?.primary || '#007AFF',
-    background: theme?.background || 'rgba(255, 255, 255, 0.95)',
-    text: theme?.text || '#000000',
-    subtext: theme?.subtext || '#666666',
-    overlay: theme?.overlay || 'rgba(0, 0, 0, 0.5)'
+    background: theme?.background || '#FFFFFF',
+    text: theme?.text || '#1C1C1E',
+    overlay: theme?.overlay || 'rgba(0, 0, 0, 0.4)',
   }
 
-  const handleAction = (action: () => void) => {
-    Animated.timing(fadeAnim, {
-      toValue: 0,
-      duration: 200,
-      useNativeDriver: true,
-    }).start(() => {
-      action()
-    })
-  }
+  const handleAction = useCallback((action: () => void) => {
+    setIsClosing(true)
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 0.95,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setIsClosing(false);
+      action();
+    });
+  }, [fadeAnim, scaleAnim])
+
+  if (!visible && !isClosing) return null
 
   return (
-    <Modal transparent animationType="none" visible={visible}>
-      <Animated.View style={[styles.container, { backgroundColor: colors.overlay, opacity: fadeAnim }]}>
-        <Animated.View 
+    <Modal transparent animationType="none" visible={visible || isClosing}>
+      <View style={styles.overlay}>
+        <TouchableWithoutFeedback testID="happiness-gate-overlay" onPress={() => handleAction(onDismiss)}>
+          <Animated.View
+            style={[
+              StyleSheet.absoluteFill,
+              { backgroundColor: colors.overlay, opacity: fadeAnim },
+            ]}
+          />
+        </TouchableWithoutFeedback>
+
+        <Animated.View
           style={[
             styles.card,
             {
               backgroundColor: colors.background,
-              transform: [{ scale: scaleAnim }]
-            }
+              opacity: fadeAnim,
+              transform: [{ scale: scaleAnim }],
+            },
           ]}
-          accessible={true}
-          accessibilityRole="alert"
-          accessibilityLabel={title}
         >
-          <View style={styles.header}>
-            <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
-          </View>
+          <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
 
-          <View style={styles.footer}>
-            <View style={styles.choiceContainer}>
-              <TouchableOpacity
-                style={[styles.choiceButton, styles.positiveButton, { backgroundColor: colors.primary }]}
-                onPress={() => handleAction(onPositive)}
-                activeOpacity={0.8}
-                accessibilityRole="button"
-                accessibilityLabel={positiveText}
-              >
-                <Text style={styles.positiveButtonText}>{positiveText}</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.choiceButton, styles.negativeButton, { borderColor: colors.primary }]}
-                onPress={() => handleAction(onNegative)}
-                activeOpacity={0.8}
-                accessibilityRole="button"
-                accessibilityLabel={negativeText}
-              >
-                <Text style={[styles.negativeButtonText, { color: colors.primary }]}>{negativeText}</Text>
-              </TouchableOpacity>
-            </View>
-
+          <View style={styles.buttonContainer}>
             <TouchableOpacity
-              style={styles.dismissButton}
-              onPress={() => handleAction(onDismiss)}
+              testID="happiness-gate-positive"
+              style={[styles.button, { backgroundColor: colors.primary }]}
+              onPress={() => handleAction(onPositive)}
               activeOpacity={0.7}
               accessibilityRole="button"
-              accessibilityLabel={dismissText}
-              accessibilityHint="Dismisses the feedback prompt for now"
+              accessibilityLabel={positiveText}
             >
-              <Text style={[styles.dismissButtonText, { color: colors.subtext }]}>{dismissText}</Text>
+              <Text style={styles.buttonText}>{positiveText}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              testID="happiness-gate-negative"
+              style={[styles.button, styles.secondaryButton]}
+              onPress={() => handleAction(onNegative)}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={negativeText}
+            >
+              <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>
+                {negativeText}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              testID="happiness-gate-dismiss"
+              style={styles.dismissButton}
+              onPress={() => handleAction(onDismiss)}
+              activeOpacity={0.6}
+              accessibilityRole="button"
+              accessibilityLabel={dismissText}
+            >
+              <Text style={styles.dismissButtonText}>{dismissText}</Text>
             </TouchableOpacity>
           </View>
         </Animated.View>
-      </Animated.View>
+      </View>
     </Modal>
   )
 })
 
 const styles = StyleSheet.create({
-  container: {
+  overlay: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: 20,
   },
   card: {
     width: '100%',
-    maxWidth: 360,
-    borderRadius: 32,
-    overflow: 'hidden',
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 20 },
-    shadowOpacity: 0.12,
-    shadowRadius: 40,
-    elevation: 15,
-    padding: 28,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
-  },
-  header: {
-    paddingBottom: 28,
+    maxWidth: 340,
+    borderRadius: 20,
+    padding: 24,
     alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.1,
+        shadowRadius: 20,
+      },
+      android: {
+        elevation: 10,
+      },
+    }),
   },
   title: {
-    fontSize: 24,
-    fontWeight: '900',
+    fontSize: 20,
+    fontWeight: '700',
     textAlign: 'center',
-    letterSpacing: -0.5,
-    lineHeight: 32,
+    marginBottom: 24,
+    lineHeight: 28,
   },
-  footer: {
-    gap: 16,
-  },
-  choiceContainer: {
-    flexDirection: 'row',
+  buttonContainer: {
+    width: '100%',
     gap: 12,
   },
-  choiceButton: {
-    flex: 1,
-    height: 56,
-    borderRadius: 20,
+  button: {
+    width: '100%',
+    height: 52,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
   },
-  positiveButton: {
-    // Standard shadow from choiceButton
-  },
-  positiveButtonText: {
-    color: '#FFF',
+  buttonText: {
+    color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '800',
-    letterSpacing: 0.5,
+    fontWeight: '600',
   },
-  negativeButton: {
+  secondaryButton: {
     backgroundColor: 'transparent',
-    borderWidth: 1,
-    shadowOpacity: 0,
-    elevation: 0,
   },
-  negativeButtonText: {
-    fontSize: 15,
-    fontWeight: '700',
+  secondaryButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   dismissButton: {
+    marginTop: 8,
+    height: 40,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 12,
-    marginTop: 4,
-    minHeight: 44,
   },
   dismissButtonText: {
-    fontSize: 15,
-    fontWeight: '700',
-    letterSpacing: 0.3,
+    color: '#8E8E93',
+    fontSize: 14,
+    fontWeight: '500',
   },
-});
+})

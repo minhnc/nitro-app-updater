@@ -9,7 +9,7 @@ jest.mock('../src/useAppUpdater', () => ({
 }))
 
 describe('UpdatePrompt', () => {
-  const mockStartUpdate = jest.fn()
+  const mockStartUpdate = jest.fn().mockResolvedValue(undefined)
   const mockCompleteUpdate = jest.fn()
   const mockShowHappinessGate = false
   const mockHandleHappinessPositive = jest.fn()
@@ -45,7 +45,10 @@ describe('UpdatePrompt', () => {
     recordWin: jest.fn(),
     requestReview: jest.fn(),
     openStoreReviewPage: jest.fn(),
+    emitEvent: jest.fn(),
     smartReviewState: { winCount: 0, lastPromptDate: 0, hasCompletedReview: false, promptCount: 0 },
+    resetSmartReview: jest.fn(),
+    error: undefined,
   }
 
   beforeEach(() => {
@@ -116,4 +119,37 @@ describe('UpdatePrompt', () => {
     expect(queryByText('Update Now')).toBeNull()
     expect(queryByText('Later')).toBeNull()
   })
-})
+
+  it('shows error state when updater has an error', () => {
+    const { AppUpdaterError } = require('../src/AppUpdaterError')
+    const mockError = AppUpdaterError.fromNative('UNKNOWN: Failed to download')
+    const updater = { ...defaultUpdaterState, available: true, error: mockError }
+    const { getByText } = render(
+      <UpdatePrompt externalUpdater={updater} errorTitle="Update Failed" />
+    )
+    
+    expect(getByText('Update Failed')).toBeTruthy()
+    expect(getByText('Failed to download')).toBeTruthy()
+    expect(getByText('Try Again')).toBeTruthy()
+  })
+
+  it('calls startUpdate or checkUpdate when Try Again is pressed', () => {
+    const { AppUpdaterError } = require('../src/AppUpdaterError')
+    const mockCheckUpdate = jest.fn().mockResolvedValue(undefined)
+    const mockError = AppUpdaterError.fromNative('UNKNOWN: Failed to download')
+    const updater = { 
+      ...defaultUpdaterState, 
+      available: true, 
+      error: mockError,
+      checkUpdate: mockCheckUpdate
+    }
+    
+    const { getByText } = render(
+      <UpdatePrompt externalUpdater={updater} />
+    )
+    
+    fireEvent.press(getByText('Try Again'))
+    // Since available is true, it calls startUpdate
+    expect(mockStartUpdate).toHaveBeenCalled()
+  })
+});

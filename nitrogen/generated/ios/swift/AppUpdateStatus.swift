@@ -5,7 +5,6 @@
 /// Copyright © Marc Rousavy @ Margelo
 ///
 
-import Foundation
 import NitroModules
 
 /**
@@ -36,6 +35,13 @@ public extension AppUpdateStatus {
   
   @inline(__always)
   var versionCode: Double? {
-    return self.__versionCode.value
+    return { () -> Double? in
+      if bridge.has_value_std__optional_double_(self.__versionCode) {
+        let __unwrapped = bridge.get_std__optional_double_(self.__versionCode)
+        return __unwrapped
+      } else {
+        return nil
+      }
+    }()
   }
 }

@@ -4,20 +4,25 @@ import { AppUpdaterEvent } from '../src/types'
 import { InteractionManager } from 'react-native'
 
 // Mock InteractionManager behavior
-jest.spyOn(InteractionManager, 'runAfterInteractions').mockImplementation((callback: any) => {
-  callback()
+jest.spyOn(InteractionManager, 'runAfterInteractions').mockImplementation((task?: (() => unknown) | { gen: () => unknown } | { name: string }) => {
+  if (typeof task === 'function') {
+    task()
+  } else if (task && 'gen' in task) {
+    task.gen()
+  }
+  
   return { 
-    then: (onFulfilled?: () => any) => {
+    then: (onFulfilled?: () => unknown) => {
       onFulfilled?.()
       return Promise.resolve()
     },
-    done: (fn?: () => any) => fn?.(),
+    done: (fn?: () => unknown) => fn?.(),
     cancel: jest.fn() 
-  } as any
+  } as unknown as ReturnType<typeof InteractionManager.runAfterInteractions>
 })
 
 // Mock requestIdleCallback
-const g = global as any
+const g = global as unknown as { requestIdleCallback: (cb: () => void) => void; cancelIdleCallback: () => void }
 g.requestIdleCallback = jest.fn((cb) => cb())
 g.cancelIdleCallback = jest.fn()
 
@@ -33,11 +38,11 @@ jest.mock('../src/NativeAppUpdater', () => ({
     getBundleId: jest.fn(() => 'com.test.app'),
     getCurrentVersion: jest.fn(() => '1.0.0'),
     setSmartReviewState: jest.fn(),
-    checkPlayStoreUpdate: jest.fn(async () => ({ available: false })),
-    requestInAppReview: jest.fn(async () => {}),
-    startInAppUpdate: jest.fn(async () => {}),
-    startFlexibleUpdate: jest.fn(async () => {}),
-    completeFlexibleUpdate: jest.fn(async () => {}),
+    checkPlayStoreUpdate: jest.fn().mockResolvedValue({ available: false }),
+    requestInAppReview: jest.fn().mockResolvedValue(undefined),
+    startInAppUpdate: jest.fn().mockResolvedValue(undefined),
+    startFlexibleUpdate: jest.fn().mockResolvedValue(undefined),
+    completeFlexibleUpdate: jest.fn().mockResolvedValue(undefined),
   }
 }))
 

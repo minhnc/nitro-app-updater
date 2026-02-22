@@ -14,11 +14,11 @@
 
 namespace margelo::nitro::minhnc::appupdater::bridge::swift {
 
-  // pragma MARK: std::function<void(const AppUpdateStatus& /* result */)>
-  Func_void_AppUpdateStatus create_Func_void_AppUpdateStatus(void* NON_NULL swiftClosureWrapper) noexcept {
-    auto swiftClosure = AppUpdater::Func_void_AppUpdateStatus::fromUnsafe(swiftClosureWrapper);
-    return [swiftClosure = std::move(swiftClosure)](const AppUpdateStatus& result) mutable -> void {
-      swiftClosure.call(result);
+  // pragma MARK: std::function<void()>
+  Func_void create_Func_void(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = AppUpdater::Func_void::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)]() mutable -> void {
+      swiftClosure.call();
     };
   }
   
@@ -30,11 +30,11 @@ namespace margelo::nitro::minhnc::appupdater::bridge::swift {
     };
   }
   
-  // pragma MARK: std::function<void()>
-  Func_void create_Func_void(void* NON_NULL swiftClosureWrapper) noexcept {
-    auto swiftClosure = AppUpdater::Func_void::fromUnsafe(swiftClosureWrapper);
-    return [swiftClosure = std::move(swiftClosure)]() mutable -> void {
-      swiftClosure.call();
+  // pragma MARK: std::function<void(const AppUpdateStatus& /* result */)>
+  Func_void_AppUpdateStatus create_Func_void_AppUpdateStatus(void* NON_NULL swiftClosureWrapper) noexcept {
+    auto swiftClosure = AppUpdater::Func_void_AppUpdateStatus::fromUnsafe(swiftClosureWrapper);
+    return [swiftClosure = std::move(swiftClosure)](const AppUpdateStatus& result) mutable -> void {
+      swiftClosure.call(result);
     };
   }
   

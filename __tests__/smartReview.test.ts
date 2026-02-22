@@ -26,6 +26,11 @@ jest.mock('../src/NativeAppUpdater', () => {
 describe('Smart Review Triggers', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   it('should increment winCount when recordWin is called', async () => {

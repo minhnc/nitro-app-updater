@@ -14,33 +14,39 @@ Thank you for your interest in contributing to `@minhnc/nitro-app-updater`! We w
 2. **Install dependencies**
 
    ```bash
-   npm install
+   bun install
    ```
 
-3. **Build the project**
+3. **Verify the build**
    ```bash
-   npm run build
+   bun run check
    ```
 
-## Running Tests
+## Normal Development Workflow
 
-We use Jest for testing. Please ensure all tests pass before submitting a PR.
+To add features or fix bugs, follow this standard cycle:
 
-```bash
-npm test
-```
-
-To run a specific test file:
-
-```bash
-npm test useAppUpdater
-```
+1. **Modify the source code** in `src/`.
+2. **Install the changes into the example app**:
+   ```bash
+   bun run example:install
+   ```
+   _This command rebuilds the library, generates native bindings, packs it as a `.tgz`, and updates the example app's dependency._
+3. **Test natively**:
+   ```bash
+   bun run example:ios    # or example:android
+   ```
+4. **Run unit tests**:
+   Make sure your changes don't break existing logic:
+   ```bash
+   bun test
+   bun run test:watch # for continuous testing
+   ```
 
 ## Code Style
 
-- We use **TypeScript** and **ESLint**. Use `npm run lint` to check for issues.
-- Follow the existing code style (2 spaces indentation, single quotes).
-- Ensure new features are covered by tests.
+- We use **TypeScript** and **ESLint**. Run `bun run check` to verify both.
+- Use `bun run clean` if you need to reset the generated native files.
 
 ## Submitting a Pull Request
 
@@ -48,7 +54,6 @@ npm test useAppUpdater
 2. Create a new branch for your feature or fix.
 3. Commit your changes with clear messages.
 4. Push to your fork and submit a Pull Request.
-5. Provide a clear description of the changes and any relevant issue numbers.
 
 ## Reporting Issues
 

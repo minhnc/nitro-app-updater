@@ -19,8 +19,8 @@ namespace margelo::nitro::minhnc::appupdater { struct AppUpdateStatus; }
 namespace margelo::nitro::minhnc::appupdater { struct SmartReviewState; }
 
 #include <string>
-#include "AppUpdateStatus.hpp"
 #include <NitroModules/Promise.hpp>
+#include "AppUpdateStatus.hpp"
 #include <optional>
 #include <functional>
 #include "SmartReviewState.hpp"
@@ -58,10 +58,10 @@ namespace margelo::nitro::minhnc::appupdater {
       // Methods
       virtual std::string getCurrentVersion() = 0;
       virtual std::string getBundleId() = 0;
-      virtual void openStore(const std::string& storeId) = 0;
-      virtual void openStoreReviewPage(const std::string& storeId) = 0;
+      virtual std::shared_ptr<Promise<void>> openStore(const std::string& storeId) = 0;
+      virtual std::shared_ptr<Promise<void>> openStoreReviewPage(const std::string& storeId) = 0;
       virtual std::shared_ptr<Promise<AppUpdateStatus>> checkPlayStoreUpdate(std::optional<bool> debugMode) = 0;
-      virtual std::shared_ptr<Promise<void>> startInAppUpdate(bool immediate) = 0;
+      virtual std::shared_ptr<Promise<void>> startInAppUpdate() = 0;
       virtual std::shared_ptr<Promise<void>> startFlexibleUpdate(const std::function<void(double /* bytesDownloaded */, double /* totalBytes */)>& onProgress) = 0;
       virtual std::shared_ptr<Promise<void>> completeFlexibleUpdate() = 0;
       virtual std::shared_ptr<Promise<void>> requestInAppReview() = 0;

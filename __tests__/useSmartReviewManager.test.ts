@@ -1,7 +1,7 @@
 import { renderHook, act } from '@testing-library/react-native';
 import { useSmartReviewManager } from '../src/useSmartReviewManager';
 import { AppUpdater } from '../src/NativeAppUpdater';
-import { Platform, Linking } from 'react-native';
+import { Platform } from 'react-native';
 
 // Mock InteractionManager behavior handled in the main factory mock below
 
@@ -21,48 +21,9 @@ jest.mock('../src/NativeAppUpdater', () => ({
     })),
     setSmartReviewState: jest.fn(),
     requestInAppReview: jest.fn(),
+    openStoreReviewPage: jest.fn(),
   },
 }));
-
-// Mock react-native
-jest.mock('react-native', () => {
-  return {
-    Platform: {
-      OS: 'android',
-      select: jest.fn((dict) => dict.android || dict.default),
-    },
-    Linking: {
-      openURL: jest.fn(),
-    },
-    InteractionManager: {
-      runAfterInteractions: jest.fn((cb) => {
-        cb();
-        return { 
-          then: (onF?: () => void) => onF?.(),
-          done: (fn?: () => void) => fn?.(),
-          cancel: jest.fn() 
-        };
-      }),
-    },
-    StyleSheet: {
-      create: <T>(s: T) => s,
-    },
-    View: 'View',
-    Text: 'Text',
-    TouchableOpacity: 'TouchableOpacity',
-    Modal: 'Modal',
-    ScrollView: 'ScrollView',
-    Animated: {
-      Value: jest.fn(() => ({
-        setValue: jest.fn(),
-        interpolate: jest.fn(),
-      })),
-      timing: jest.fn(() => ({ start: jest.fn((cb) => cb?.()) })),
-      spring: jest.fn(() => ({ start: jest.fn((cb) => cb?.()) })),
-      parallel: jest.fn(() => ({ start: jest.fn((cb) => cb?.()) })),
-    },
-  };
-});
 
 describe('useSmartReviewManager', () => {
   const emitEvent = jest.fn();
@@ -71,7 +32,7 @@ describe('useSmartReviewManager', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (Platform as { OS: string }).OS = 'android';
+    Platform.OS = 'android';
   });
 
   it('should fallback to store review if native prompt is too fast (Android)', async () => {
@@ -91,7 +52,7 @@ describe('useSmartReviewManager', () => {
     });
 
     // On Android, 300ms check triggers redirect
-    expect(Linking.openURL).toHaveBeenCalledWith(expect.stringContaining('market://details'));
+    expect(AppUpdater.openStoreReviewPage).toHaveBeenCalledWith(iosStoreId);
   });
 
   it('should NOT fallback to store review if native prompt takes time (Android)', async () => {
@@ -112,7 +73,7 @@ describe('useSmartReviewManager', () => {
       await result.current.requestReview();
     });
 
-    expect(Linking.openURL).not.toHaveBeenCalled();
+    expect(AppUpdater.openStoreReviewPage).not.toHaveBeenCalled();
   });
 
   it('should bypass completion limits in debugMode', async () => {
@@ -160,11 +121,11 @@ describe('useSmartReviewManager', () => {
 
     // Should NOT try native prompt, should go straight to store link
     expect(AppUpdater.requestInAppReview).not.toHaveBeenCalled();
-    expect(Linking.openURL).toHaveBeenCalled();
+    expect(AppUpdater.openStoreReviewPage).toHaveBeenCalledWith(iosStoreId);
   });
 
   it('should use deep link for iOS when iosStoreId is provided', async () => {
-    (Platform as { OS: string }).OS = 'ios';
+    Platform.OS = 'ios';
     const { result } = renderHook(() => useSmartReviewManager(
       { enabled: true },
       false,
@@ -177,6 +138,6 @@ describe('useSmartReviewManager', () => {
       await result.current.openStoreReviewPage();
     });
 
-    expect(Linking.openURL).toHaveBeenCalledWith(`itms-apps://itunes.apple.com/app/id${iosStoreId}?action=write-review`);
+    expect(AppUpdater.openStoreReviewPage).toHaveBeenCalledWith(iosStoreId);
   });
 });

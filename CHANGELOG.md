@@ -2,6 +2,38 @@
 
 All notable changes to the `@minhnc/nitro-app-updater` project will be documented in this file.
 
+## [1.2.1]
+
+### 🚀 Added
+
+- **Built-in Provider & Context**: Added `AppUpdaterProvider` and `useAppUpdaterContext` to drastically reduce boilerplate in consumer apps. You can now wrap your app once and access the updater state from anywhere without prop-drilling or initializing multiple hook instances.
+- **Automatic Error Recovery UI**: `UpdatePrompt` now handles failures (like network timeouts) gracefully. It displays a fully themable error wrapper equipped with a functional "Try Again" button to retrigger checks/downloads.
+- **Error Theming**: Added an optional `error` color property to `UpdatePromptTheme` (defaulting to `#FF3B30`). The failure UI automatically calculates dynamic background and border opacities based on this base hex color.
+- **Smart Review Reset**: Exported `resetSmartReview` from the `useAppUpdater` hook to allow developers to instantly clear persistent win counts and prompt cooldowns during development.
+- **Exposed Error State**: The `useAppUpdater` hook now surfaces the `error` state directly, holding the `AppUpdaterError` object from the most recent failed `update_dismissed` event.
+- **Configurable iOS Timeout**: New `iosLookupTimeoutMs` config option (default: 10000ms) to control the App Store lookup request timeout.
+- **Public Sub-Hooks**: Exported `useUpdateManager`, `useDownloadManager`, and `useSmartReviewManager` for advanced consumers who need granular control.
+- **Public Utilities**: Exported `compareVersions`, `checkIOSUpdate`, and `ITunesLookupResult` for consumers who want to perform version checks independently.
+- **Dynamic OS Compatibility**: `minOsVersion` is now handled internally. On iOS, the library automatically extracts `minimumOsVersion` from the iTunes API and prevents update prompts on unsupported devices. On Android, the Google Play Store already handles this natively.
+
+### 🏗️ Changed
+
+- **Internalized minOsVersion**: Deprecated the manual `minOsVersion` configuration. The library now manages OS compatibility checks dynamically via store APIs, reducing boilerplate and preventing stale OS requirement data.
+- **React Best Practices**: Improved hook safety by hoisting state declarations (`useState`) to the absolute top of the `useAppUpdater` hook, preventing subtle lexical scoping constraints.
+- **Memory Safety**: Added strict unmount cleanup for the rapid-fire `setTimeout` used in the `UpdatePrompt`'s visual retry flash effect.
+- **Logic Stability**: Refactored `useUpdateManager` to eliminate the legacy `isMounted` ref pattern in favor of stable callback identities via refs, following modern React 18+ best practices for async safety.
+- **Improved Error Recovery**: `useSmartReviewManager` now resets the internal `winCount` if a store review request fails, ensuring users can be re-prompted later rather than being permanently stuck in a "happiness pending" state.
+- **HappinessGate Memoized**: Wrapped `HappinessGate` with `React.memo` for render performance consistency with `UpdatePrompt`.
+
+### 🛡️ Fixed
+
+- **Android Sideload Safety**: Gracefully handle the `APP_NOT_OWNED` error (-10) on Android. The library now treats sideloaded apps (not from Play Store) as having no updates available instead of throwing an error.
+- **Hook Promise Safety**: Wrapped internal `checkUpdate` calls in `useAppUpdater` with `.catch()` blocks to prevent uncaught promise rejections across all platforms.
+- **Regression Fix**: Restored missing `clearUpdateCache()` call in the foreground refresh flow.
+- **Deleted Legacy Code**: Removed the `expo-plugin.ts` entirely. It was discovered that with React Native 0.75+ and Expo SDK 51+, the modern C++ interoperability setup renders custom config plugins for Nitro Modules completely unnecessary. Applications just work out-of-the-box via autolinking.
+- **Accessibility**: Added missing `accessibilityRole` and `accessibilityLabel` props to all `HappinessGate` buttons to improve screen reader support.
+- **Documentation Polish**: Cleaned up all internal review markers and standardized codebase comments for professional production release.
+
 ## [1.1.1]
 
 ### 🚀 Added
