@@ -5,7 +5,7 @@
     "": {
       "name": "example",
       "dependencies": {
-        "@minhnc/nitro-app-updater": "../minhnc-nitro-app-updater-1.2.0.tgz",
+        "@minhnc/nitro-app-updater": "file:../minhnc-nitro-app-updater-1.2.1.tgz",
         "expo": "~54.0.31",
         "expo-dev-client": "^6.0.20",
         "expo-linking": "^8.0.11",
@@ -293,7 +293,7 @@
 
     "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
 
-    "@minhnc/nitro-app-updater": ["@minhnc/nitro-app-updater@../minhnc-nitro-app-updater-1.2.0.tgz", { "peerDependencies": { "react": ">=18.0.0", "react-native": ">=0.75.0", "react-native-nitro-modules": ">=0.33.1" } }],
+    "@minhnc/nitro-app-updater": ["@minhnc/nitro-app-updater@../minhnc-nitro-app-updater-1.2.1.tgz", { "peerDependencies": { "react": ">=18.0.0", "react-native": ">=0.75.0", "react-native-nitro-modules": ">=0.33.1" } }],
 
     "@react-native/assets-registry": ["@react-native/assets-registry@0.81.5", "", {}, "sha512-705B6x/5Kxm1RKRvSv0ADYWm5JOnoiQ1ufW7h8uu2E6G9Of/eE6hP/Ivw3U5jI16ERqZxiKQwk34VJbB0niX9w=="],
 
